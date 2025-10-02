@@ -266,18 +266,54 @@
             const founderPercentages = [30, 29, 14, 14, 13];
             const founderNames = ['Founder 1', 'Founder 2', 'Founder 3', 'Founder 4', 'Founder 5'];
 
+            const defaultCourse1Classes = [
+                { id: 1, name: 'Class 1', students: 15 },
+                { id: 2, name: 'Class 2', students: 15 }
+            ];
+            const defaultCourse2Classes = [
+                { id: 1, name: 'Class 1', students: 12 },
+                { id: 2, name: 'Class 2', students: 10 }
+            ];
+            const defaultCourse2AltClasses = [];
+
+            const normalizeClasses = (input, defaults, prefix, fallbackStudents) => {
+                const source = Array.isArray(input) && input.length > 0 ? input : defaults;
+                return source.map((cls, idx) => {
+                    const id = cls.id ?? defaults[idx]?.id ?? idx + 1;
+                    const defaultMatch = defaults.find(d => d.id === id);
+                    const fallbackName = defaultMatch?.name ?? `${prefix} ${id}`;
+                    const fallbackStudentCount = defaultMatch?.students ?? fallbackStudents;
+                    const parsedStudents = parseInt(cls.students, 10);
+                    return {
+                        ...cls,
+                        id,
+                        name: cls.name && cls.name.trim().length ? cls.name : fallbackName,
+                        students: Number.isNaN(parsedStudents) ? fallbackStudentCount : parsedStudents,
+                    };
+                });
+            };
+
             // Classes (baseline)
-            const [course1Classes, setCourse1Classes] = useState(() => savedState?.course1Classes ?? [
-                { id: 1, students: 15 },
-                { id: 2, students: 15 }
-            ]);
+            const [course1Classes, setCourse1Classes] = useState(() => normalizeClasses(
+                savedState?.course1Classes,
+                defaultCourse1Classes,
+                'Class',
+                15
+            ));
             
-            const [course2Classes, setCourse2Classes] = useState(() => savedState?.course2Classes ?? [
-                { id: 1, students: 12 },
-                { id: 2, students: 10 }
-            ]);
+            const [course2Classes, setCourse2Classes] = useState(() => normalizeClasses(
+                savedState?.course2Classes,
+                defaultCourse2Classes,
+                'Class',
+                6
+            ));
             
-            const [course2AltClasses, setCourse2AltClasses] = useState(() => savedState?.course2AltClasses ?? []);
+            const [course2AltClasses, setCourse2AltClasses] = useState(() => normalizeClasses(
+                savedState?.course2AltClasses,
+                defaultCourse2AltClasses,
+                'Slot',
+                1
+            ));
 
             // Teachers with flexible assignments (salary and capacity per teacher)
             const [teachers, setTeachers] = useState(() => savedState?.teachers ?? [
@@ -565,15 +601,24 @@
                     setShowFounders(pageState.showFounders ?? false);
                     setIsConfigCollapsed(pageState.isConfigCollapsed ?? false);
                     setIsTeacherPanelExpanded(pageState.isTeacherPanelExpanded ?? false);
-                    setCourse1Classes(pageState.course1Classes ?? [
-                        { id: 1, students: 15 },
-                        { id: 2, students: 15 }
-                    ]);
-                    setCourse2Classes(pageState.course2Classes ?? [
-                        { id: 1, students: 12 },
-                        { id: 2, students: 10 }
-                    ]);
-                    setCourse2AltClasses(pageState.course2AltClasses ?? []);
+                    setCourse1Classes(normalizeClasses(
+                        pageState.course1Classes,
+                        defaultCourse1Classes,
+                        'Class',
+                        15
+                    ));
+                    setCourse2Classes(normalizeClasses(
+                        pageState.course2Classes,
+                        defaultCourse2Classes,
+                        'Class',
+                        6
+                    ));
+                    setCourse2AltClasses(normalizeClasses(
+                        pageState.course2AltClasses,
+                        defaultCourse2AltClasses,
+                        'Slot',
+                        1
+                    ));
                     setTeachers(pageState.teachers ?? [
                         { 
                             id: 1, 
@@ -632,19 +677,59 @@
 
             // Modal state for adding one-on-one assignment
             const [showOneOnOneModal, setShowOneOnOneModal] = useState(false);
-            const [modalData, setModalData] = useState({ teacherId: null, classId: null, students: 1 });
+            const [modalData, setModalData] = useState({ teacherId: null, classId: null, students: 1, maxStudents: 1, className: '' });
+
+            // Inline editing state for class names
+            const [editingClass, setEditingClass] = useState(null); // { type, id }
+            const [editingClassName, setEditingClassName] = useState('');
+
+            const startEditingClassName = (type, id, currentName) => {
+                setEditingClass({ type, id });
+                setEditingClassName(currentName);
+            };
+
+            const saveClassName = () => {
+                if (editingClass && editingClassName.trim()) {
+                    updateClassName(editingClass.type, editingClass.id, editingClassName.trim());
+                }
+                setEditingClass(null);
+                setEditingClassName('');
+            };
+
+            const cancelEditingClassName = () => {
+                setEditingClass(null);
+                setEditingClassName('');
+            };
+
+            const getClassNameByType = (type, classId) => {
+                const numericId = Number(classId);
+                let cls;
+                let fallbackLabel = `Class ${classId}`;
+
+                if (type === 'course1') {
+                    cls = course1Classes.find(c => c.id === numericId);
+                } else if (type === 'course2') {
+                    cls = course2Classes.find(c => c.id === numericId);
+                } else if (type === 'course2alt') {
+                    cls = course2AltClasses.find(c => c.id === numericId);
+                    fallbackLabel = `Slot ${classId}`;
+                }
+
+                const trimmed = cls?.name?.trim();
+                return trimmed?.length ? trimmed : fallbackLabel;
+            };
 
             // Add/remove classes
             const addClass = (type) => {
                 if (type === 'course1') {
                     const newId = Math.max(0, ...course1Classes.map(c => c.id)) + 1;
-                    setCourse1Classes([...course1Classes, { id: newId, students: 15 }]);
+                    setCourse1Classes([...course1Classes, { id: newId, name: `Class ${newId}`, students: 15 }]);
                 } else if (type === 'course2') {
                     const newId = Math.max(0, ...course2Classes.map(c => c.id)) + 1;
-                    setCourse2Classes([...course2Classes, { id: newId, students: 6 }]);
+                    setCourse2Classes([...course2Classes, { id: newId, name: `Class ${newId}`, students: 6 }]);
                 } else if (type === 'course2alt') {
                     const newId = Math.max(0, ...course2AltClasses.map(c => c.id), 0) + 1;
-                    setCourse2AltClasses([...course2AltClasses, { id: newId, students: 1 }]);
+                    setCourse2AltClasses([...course2AltClasses, { id: newId, name: `Slot ${newId}`, students: 1 }]);
                 }
             };
 
@@ -669,6 +754,16 @@
                         ...t,
                         assignments: t.assignments.filter(a => !(a.type === 'course2alt' && a.classId === id))
                     })));
+                }
+            };
+
+            const updateClassName = (type, id, name) => {
+                if (type === 'course1') {
+                    setCourse1Classes(prev => prev.map(c => c.id === id ? { ...c, name } : c));
+                } else if (type === 'course2') {
+                    setCourse2Classes(prev => prev.map(c => c.id === id ? { ...c, name } : c));
+                } else if (type === 'course2alt') {
+                    setCourse2AltClasses(prev => prev.map(c => c.id === id ? { ...c, name } : c));
                 }
             };
 
@@ -796,7 +891,8 @@
                     teacherId, 
                     classId, 
                     students: remainingStudents > 0 ? remainingStudents : 1, 
-                    maxStudents: remainingStudents > 0 ? remainingStudents : classInfo.students
+                    maxStudents: remainingStudents > 0 ? remainingStudents : classInfo.students,
+                    className: getClassNameByType('course2', classId)
                 });
                 setShowOneOnOneModal(true);
             };
@@ -821,7 +917,7 @@
                         t.assignments.some(a => a.type === 'course1-class' && a.classId === cls.id)
                     );
                     if (!covered) {
-                        needs.course1Classes.push(cls.id);
+                        needs.course1Classes.push({ id: cls.id, name: getClassNameByType('course1', cls.id) });
                     }
                 });
 
@@ -831,7 +927,7 @@
                         t.assignments.some(a => a.type === 'course2-class' && a.classId === cls.id)
                     );
                     if (!classCovered) {
-                        needs.course2Classes.push(cls.id);
+                        needs.course2Classes.push({ id: cls.id, name: getClassNameByType('course2', cls.id) });
                     }
 
                     // Calculate one-on-one coverage
@@ -845,7 +941,8 @@
                         needs.course2OneOnOne[cls.id] = {
                             total: totalStudents,
                             covered: coveredStudents,
-                            remaining: totalStudents - coveredStudents
+                            remaining: totalStudents - coveredStudents,
+                            name: getClassNameByType('course2', cls.id)
                         };
                     }
                 });
@@ -856,7 +953,7 @@
                         t.assignments.some(a => a.type === 'course2alt' && a.classId === cls.id)
                     );
                     if (!covered) {
-                        needs.course2AltClasses.push(cls.id);
+                        needs.course2AltClasses.push({ id: cls.id, name: getClassNameByType('course2alt', cls.id) });
                     }
                 });
 
@@ -922,13 +1019,17 @@
 
             const getAssignmentLabel = (assignment) => {
                 if (assignment.type === 'course1-class') {
-                    return `Course 1 - Class ${assignment.classId}`;
+                    const className = getClassNameByType('course1', assignment.classId);
+                    return `Course 1 - ${className}`;
                 } else if (assignment.type === 'course2-class') {
-                    return `Course 2 - Class ${assignment.classId}`;
+                    const className = getClassNameByType('course2', assignment.classId);
+                    return `Course 2 - ${className}`;
                 } else if (assignment.type === 'course2-oneone') {
-                    return `Course 2 - One-on-One (Class ${assignment.classId}, ${assignment.students} students)`;
+                    const className = getClassNameByType('course2', assignment.classId);
+                    return `Course 2 - One-on-One (${className}, ${assignment.students} students)`;
                 } else if (assignment.type === 'course2alt') {
-                    return `Course 2 Alt - Slot ${assignment.classId}`;
+                    const className = getClassNameByType('course2alt', assignment.classId);
+                    return `Course 2 Alt - ${className}`;
                 }
                 return 'Unknown';
             };
@@ -1551,7 +1652,7 @@
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                                         <div>
-                                            <div className="font-semibold text-gray-700">Course 1</div>
+                                            <div className="font-semibold text-gray-700">Course 1 - Read/Listen</div>
                                             <div className="text-xs text-gray-600">
                                                 {course1Classes.length} classes, {course1Classes.reduce((sum, c) => sum + c.students, 0)} students
                                             </div>
@@ -1560,7 +1661,7 @@
                                     </div>
                                     <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
                                         <div>
-                                            <div className="font-semibold text-gray-700">Course 2</div>
+                                            <div className="font-semibold text-gray-700">Course 2 - Write/Speak</div>
                                             <div className="text-xs text-gray-600">
                                                 {course2Classes.length} classes, {course2Classes.reduce((sum, c) => sum + c.students, 0)} students
                                             </div>
@@ -1592,23 +1693,23 @@
                                 <h3 className="text-xl font-bold text-red-900 mb-3">⚠️ Uncovered Classes/Sessions</h3>
                                 <div className="space-y-2 text-red-800">
                                     {coverageNeeds.course1Classes.length > 0 && (
-                                        <div>• <strong>Course 1 Classes:</strong> {coverageNeeds.course1Classes.join(', ')} need teacher assignment</div>
+                                        <div>• <strong>Course 1 Classes:</strong> {coverageNeeds.course1Classes.map(cls => cls.name).join(', ')} need teacher assignment</div>
                                     )}
                                     {coverageNeeds.course2Classes.length > 0 && (
-                                        <div>• <strong>Course 2 Classes:</strong> {coverageNeeds.course2Classes.join(', ')} need teacher assignment</div>
+                                        <div>• <strong>Course 2 Classes:</strong> {coverageNeeds.course2Classes.map(cls => cls.name).join(', ')} need teacher assignment</div>
                                     )}
                                     {Object.keys(coverageNeeds.course2OneOnOne).length > 0 && (
                                         <div>
                                             • <strong>Course 2 One-on-One:</strong>
                                             {Object.entries(coverageNeeds.course2OneOnOne).map(([classId, data]) => (
                                                 <div key={classId} className="ml-4">
-                                                    Class {classId}: {data.remaining} of {data.total} students need coverage ({data.covered} covered)
+                                                    {data.name}: {data.remaining} of {data.total} students need coverage ({data.covered} covered)
                                                 </div>
                                             ))}
                                         </div>
                                     )}
                                     {coverageNeeds.course2AltClasses.length > 0 && (
-                                        <div>• <strong>Course 2 Alt:</strong> Slots {coverageNeeds.course2AltClasses.join(', ')} need teacher assignment</div>
+                                        <div>• <strong>Course 2 Alt:</strong> {coverageNeeds.course2AltClasses.map(cls => cls.name).join(', ')} need teacher assignment</div>
                                     )}
                                 </div>
                                 <div className="mt-3 text-red-900 font-semibold">
@@ -1643,7 +1744,30 @@
                                                 return (
                                                     <div key={cls.id} className={`p-3 rounded-lg ${covered ? 'bg-green-50' : 'bg-red-50'}`}>
                                                         <div className="flex items-center gap-3 mb-2">
-                                                            <span className="font-semibold text-gray-700 min-w-[70px]">Class {cls.id}</span>
+                                                            {editingClass?.type === 'course1' && editingClass?.id === cls.id ? (
+                                                                <div className="flex items-center gap-2 min-w-[70px]">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={editingClassName}
+                                                                        onChange={(e) => setEditingClassName(e.target.value)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') saveClassName();
+                                                                            if (e.key === 'Escape') cancelEditingClassName();
+                                                                        }}
+                                                                        className="w-full px-2 py-1 border-2 border-blue-400 rounded font-semibold text-gray-700"
+                                                                        autoFocus
+                                                                        placeholder="Class name"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <span
+                                                                    onDoubleClick={() => startEditingClassName('course1', cls.id, cls.name)}
+                                                                    className="font-semibold text-gray-700 min-w-[70px] px-2 py-1 cursor-pointer hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-colors"
+                                                                    title="Double-click to edit class name"
+                                                                >
+                                                                    {cls.name || `Class ${cls.id}`}
+                                                                </span>
+                                                            )}
                                                             <input 
                                                                 type="number" 
                                                                 className="small"
@@ -1702,7 +1826,30 @@
                                                 return (
                                                     <div key={cls.id} className="p-3 bg-purple-50 rounded-lg">
                                                         <div className="flex items-center gap-3 mb-2">
-                                                            <span className="font-semibold text-gray-700 min-w-[70px]">Class {cls.id}</span>
+                                                            {editingClass?.type === 'course2' && editingClass?.id === cls.id ? (
+                                                                <div className="flex items-center gap-2 min-w-[70px]">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={editingClassName}
+                                                                        onChange={(e) => setEditingClassName(e.target.value)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') saveClassName();
+                                                                            if (e.key === 'Escape') cancelEditingClassName();
+                                                                        }}
+                                                                        className="w-full px-2 py-1 border-2 border-blue-400 rounded font-semibold text-gray-700"
+                                                                        autoFocus
+                                                                        placeholder="Class name"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <span
+                                                                    onDoubleClick={() => startEditingClassName('course2', cls.id, cls.name)}
+                                                                    className="font-semibold text-gray-700 min-w-[70px] px-2 py-1 cursor-pointer hover:bg-purple-100 rounded border border-transparent hover:border-purple-300 transition-colors"
+                                                                    title="Double-click to edit class name"
+                                                                >
+                                                                    {cls.name || `Class ${cls.id}`}
+                                                                </span>
+                                                            )}
                                                             <input 
                                                                 type="number" 
                                                                 className="small"
@@ -1764,7 +1911,30 @@
                                                     return (
                                                         <div key={cls.id} className={`p-3 rounded-lg ${covered ? 'bg-green-50' : 'bg-red-50'}`}>
                                                             <div className="flex items-center gap-3 mb-2">
-                                                                <span className="font-semibold text-gray-700 min-w-[70px]">Slot {cls.id}</span>
+                                                                {editingClass?.type === 'course2alt' && editingClass?.id === cls.id ? (
+                                                                    <div className="flex items-center gap-2 min-w-[70px]">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editingClassName}
+                                                                            onChange={(e) => setEditingClassName(e.target.value)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') saveClassName();
+                                                                                if (e.key === 'Escape') cancelEditingClassName();
+                                                                            }}
+                                                                            className="w-full px-2 py-1 border-2 border-blue-400 rounded font-semibold text-gray-700"
+                                                                            autoFocus
+                                                                            placeholder="Slot name"
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <span
+                                                                        onDoubleClick={() => startEditingClassName('course2alt', cls.id, cls.name)}
+                                                                        className="font-semibold text-gray-700 min-w-[70px] px-2 py-1 cursor-pointer hover:bg-orange-50 rounded border border-transparent hover:border-orange-200 transition-colors"
+                                                                        title="Double-click to edit slot name"
+                                                                    >
+                                                                        {cls.name || `Slot ${cls.id}`}
+                                                                    </span>
+                                                                )}
                                                                 <input 
                                                                     type="number" 
                                                                     className="small"
@@ -1954,7 +2124,7 @@
                                                                         className="btn btn-primary btn-small text-xs"
                                                                         disabled={teacher.assignments.some(a => a.type === 'course1-class' && a.classId === cls.id)}
                                                                     >
-                                                                        C1 Class {cls.id}
+                                                                        C1: {cls.name || `Class ${cls.id}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -1972,7 +2142,7 @@
                                                                                 className="btn btn-primary btn-small text-xs"
                                                                                 disabled={teacher.assignments.some(a => a.type === 'course2-class' && a.classId === cls.id)}
                                                                             >
-                                                                                C2 Class {cls.id}
+                                                                                C2: {cls.name || `Class ${cls.id}`}
                                                                             </button>
                                                                         )}
                                                                         {!oneOnOneCovered && (
@@ -1980,7 +2150,7 @@
                                                                                 onClick={() => openOneOnOneModal(teacher.id, cls.id)}
                                                                                 className="btn btn-primary btn-small text-xs"
                                                                             >
-                                                                                C2 1-on-1 {cls.id}
+                                                                                C2 1:1 {cls.name || `Class ${cls.id}`}
                                                                             </button>
                                                                         )}
                                                                     </React.Fragment>
@@ -1996,7 +2166,7 @@
                                                                         className="btn btn-primary btn-small text-xs"
                                                                         disabled={teacher.assignments.some(a => a.type === 'course2alt' && a.classId === cls.id)}
                                                                     >
-                                                                        C2 Alt {cls.id}
+                                                                        C2 Alt: {cls.name || `Slot ${cls.id}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -2029,7 +2199,7 @@
                             <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                                 <h3 className="text-xl font-bold mb-4">Assign One-on-One Students</h3>
                                 <p className="text-sm text-gray-600 mb-4">
-                                    How many students from Class {modalData.classId} should this teacher handle for one-on-one sessions?
+                                    How many students from {modalData.className || `Class ${modalData.classId}`} should this teacher handle for one-on-one sessions?
                                 </p>
                                 <div className="mb-4">
                                     <label className="block font-semibold mb-2">Number of Students:</label>

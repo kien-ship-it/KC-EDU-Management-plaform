@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K/C EDU - Teacher and Courses Assignment Dashboard</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 8px 0;
+        }
+        .metric-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .positive { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .negative { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+        .progress-over { background: #ef4444; }
+        .progress-good { background: #10b981; }
+        .progress-warning { background: #f59e0b; }
+        
+        .teacher-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+        .teacher-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+        .assignment-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #f9fafb;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        .class-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 6px;
+        }
+        .badge-course1 { background: #dbeafe; color: #1e40af; }
+        .badge-course2 { background: #e9d5ff; color: #6b21a8; }
+        .badge-oneone { background: #fce7f3; color: #9f1239; }
+        .badge-course2alt { background: #fed7aa; color: #92400e; }
+        
+        input[type="number"], select {
+            padding: 8px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        input[type="number"] {
+            width: 100px;
+        }
+        input[type="number"].small {
+            width: 70px;
+        }
+        input[type="number"].large {
+            width: 150px;
+        }
+        select {
+            width: 100%;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        .editable-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .editable-field label {
+            font-weight: 600;
+            color: #374151;
+            min-width: 120px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const PAGES_STORAGE_KEY = 'kcEduDashboardPages';
+        const PAGE_DATA_PREFIX = 'kcEduPage_';
+
+        const getPageStorageKey = (pageId) => `${PAGE_DATA_PREFIX}${pageId}`;
+
+        const loadPageState = (pageId) => {
+            if (typeof window === 'undefined') return null;
+            try {
+                const raw = localStorage.getItem(getPageStorageKey(pageId));
+                return raw ? JSON.parse(raw) : null;
+            } catch (error) {
+                console.error(`Failed to load page ${pageId} state`, error);
+                return null;
+            }
+        };
+
+        const loadSavedPages = () => {
+            if (typeof window === 'undefined') return null;
+            try {
+                const raw = localStorage.getItem(PAGES_STORAGE_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (error) {
+                console.error('Failed to load saved pages', error);
+                return null;
+            }
+        };
+
+        const persistPageState = (pageId, state) => {
+            if (typeof window === 'undefined') return;
+            try {
+                localStorage.setItem(getPageStorageKey(pageId), JSON.stringify(state));
+            } catch (error) {
+                console.error(`Failed to persist page ${pageId} state`, error);
+            }
+        };
+
+        const deletePageState = (pageId) => {
+            if (typeof window === 'undefined') return;
+            try {
+                localStorage.removeItem(getPageStorageKey(pageId));
+            } catch (error) {
+                console.error(`Failed to delete page ${pageId} state`, error);
+            }
+        };
+
+        const persistPages = (pages) => {
+            if (typeof window === 'undefined') return;
+            try {
+                localStorage.setItem(PAGES_STORAGE_KEY, JSON.stringify(pages));
+            } catch (error) {
+                console.error('Failed to persist pages', error);
+            }
+        };
+
+        function FinancialAnalysisDashboard() {
+            const savedPagesData = useMemo(() => loadSavedPages(), []);
+            
+            // Page management
+            const [pages, setPages] = useState(() => savedPagesData?.pages ?? [
+                { id: 1, name: 'Page 1', state: null }
+            ]);
+            const [activePageId, setActivePageId] = useState(() => savedPagesData?.activePageId ?? 1);
+            const [editingPageId, setEditingPageId] = useState(null);
+            const [editingPageName, setEditingPageName] = useState('');
+
+            const activePage = pages.find(p => p.id === activePageId) || pages[0];
+            const savedState = useMemo(() => loadPageState(activePageId), [activePageId]);
+
+            // Editable costs
+            const [hrPersonnel, setHrPersonnel] = useState(() => savedState?.hrPersonnel ?? 28000000);
+            const [marketing, setMarketing] = useState(() => savedState?.marketing ?? 8000000);
+            const [misc, setMisc] = useState(() => savedState?.misc ?? 4000000);
+            const [defaultTeacherSalary, setDefaultTeacherSalary] = useState(() => savedState?.defaultTeacherSalary ?? 8000000);
+            const [defaultTeacherCapacity, setDefaultTeacherCapacity] = useState(() => savedState?.defaultTeacherCapacity ?? 4);
+            const taxRate = 0.02;
+
+            // Pricing (per hour per student) - now editable
+            const [course1PricePerHour, setCourse1PricePerHour] = useState(() => savedState?.course1PricePerHour ?? 250000);
+            const [course2PricePerHour, setCourse2PricePerHour] = useState(() => savedState?.course2PricePerHour ?? 260000);
+            const [course2AltPricePerHour, setCourse2AltPricePerHour] = useState(() => savedState?.course2AltPricePerHour ?? 400000);
+
+            // Session details - now editable
+            const [courseDurationWeeks, setCourseDurationWeeks] = useState(() => savedState?.courseDurationWeeks ?? 9);
+            const [course1HoursPerWeek, setCourse1HoursPerWeek] = useState(() => savedState?.course1HoursPerWeek ?? 2);
+            const [course2ClassHoursPerWeek, setCourse2ClassHoursPerWeek] = useState(() => savedState?.course2ClassHoursPerWeek ?? 2);
+            const [course2AltHoursPerWeek, setCourse2AltHoursPerWeek] = useState(() => savedState?.course2AltHoursPerWeek ?? 2);
+            const [course2OneOnOneMinutes, setCourse2OneOnOneMinutes] = useState(() => savedState?.course2OneOnOneMinutes ?? 20);
+
+            // Founders toggle and percentages
+            const [showFounders, setShowFounders] = useState(() => savedState?.showFounders ?? false);
+            const [isConfigCollapsed, setIsConfigCollapsed] = useState(() => savedState?.isConfigCollapsed ?? false);
+            const [isTeacherPanelExpanded, setIsTeacherPanelExpanded] = useState(() => savedState?.isTeacherPanelExpanded ?? false);
+            const founderPercentages = [30, 29, 14, 14, 13];
+            const founderNames = ['Founder 1', 'Founder 2', 'Founder 3', 'Founder 4', 'Founder 5'];
+
+            // Classes (baseline)
+            const [course1Classes, setCourse1Classes] = useState(() => savedState?.course1Classes ?? [
+                { id: 1, students: 15 },
+                { id: 2, students: 15 }
+            ]);
+            
+            const [course2Classes, setCourse2Classes] = useState(() => savedState?.course2Classes ?? [
+                { id: 1, students: 12 },
+                { id: 2, students: 10 }
+            ]);
+            
+            const [course2AltClasses, setCourse2AltClasses] = useState(() => savedState?.course2AltClasses ?? []);
+
+            // Teachers with flexible assignments (salary and capacity per teacher)
+            const [teachers, setTeachers] = useState(() => savedState?.teachers ?? [
+                { 
+                    id: 1, 
+                    name: 'Teacher 1',
+                    salary: 8000000,
+                    capacity: 4,
+                    assignments: [
+                        { type: 'course1-class', classId: 1, hours: 2 }
+                    ]
+                },
+                { 
+                    id: 2, 
+                    name: 'Teacher 2',
+                    salary: 8000000,
+                    capacity: 4,
+                    assignments: [
+                        { type: 'course1-class', classId: 2, hours: 2 }
+                    ]
+                },
+                { 
+                    id: 3, 
+                    name: 'Teacher 3',
+                    salary: 8000000,
+                    capacity: 4,
+                    assignments: [
+                        { type: 'course2-class', classId: 1, hours: 2 }
+                    ]
+                },
+                { 
+                    id: 4, 
+                    name: 'Teacher 4',
+                    salary: 8000000,
+                    capacity: 4,
+                    assignments: [
+                        { type: 'course2-oneone', classId: 1, students: 6, hours: 2 }
+                    ]
+                },
+                { 
+                    id: 5, 
+                    name: 'Teacher 5',
+                    salary: 8000000,
+                    capacity: 4,
+                    assignments: [
+                        { type: 'course2-oneone', classId: 1, students: 6, hours: 2 }
+                    ]
+                }
+            ]);
+
+            const classesCardRef = useRef(null);
+            const [teacherPanelHeight, setTeacherPanelHeight] = useState(null);
+
+            // Page management functions
+            const addNewPage = () => {
+                const newId = Math.max(...pages.map(p => p.id), 0) + 1;
+                const newPage = { id: newId, name: `Page ${newId}`, state: null };
+                const updatedPages = [...pages, newPage];
+                
+                // Create initial state for new page with current config but empty courses/teachers
+                const newPageState = {
+                    // Copy current configuration settings
+                    hrPersonnel,
+                    marketing,
+                    misc,
+                    defaultTeacherSalary,
+                    defaultTeacherCapacity,
+                    course1PricePerHour,
+                    course2PricePerHour,
+                    course2AltPricePerHour,
+                    courseDurationWeeks,
+                    course1HoursPerWeek,
+                    course2ClassHoursPerWeek,
+                    course2AltHoursPerWeek,
+                    course2OneOnOneMinutes,
+                    showFounders,
+                    isConfigCollapsed,
+                    isTeacherPanelExpanded,
+                    // Initialize with empty courses and teachers
+                    course1Classes: [],
+                    course2Classes: [],
+                    course2AltClasses: [],
+                    teachers: [],
+                };
+                
+                // Save the initial state for the new page
+                persistPageState(newId, newPageState);
+                
+                setPages(updatedPages);
+                setActivePageId(newId);
+            };
+
+            const deletePage = (pageId) => {
+                if (pages.length === 1) return; // Don't delete the last page
+                const updatedPages = pages.filter(p => p.id !== pageId);
+                setPages(updatedPages);
+                // Clean up page-specific data from localStorage
+                deletePageState(pageId);
+                if (activePageId === pageId) {
+                    setActivePageId(updatedPages[0].id);
+                }
+            };
+
+            const startEditingPageName = (pageId, currentName) => {
+                setEditingPageId(pageId);
+                setEditingPageName(currentName);
+            };
+
+            const savePageName = () => {
+                if (editingPageId && editingPageName.trim()) {
+                    setPages(pages.map(p => 
+                        p.id === editingPageId ? { ...p, name: editingPageName.trim() } : p
+                    ));
+                }
+                setEditingPageId(null);
+                setEditingPageName('');
+            };
+
+            const cancelEditingPageName = () => {
+                setEditingPageId(null);
+                setEditingPageName('');
+            };
+
+            // Export all data
+            const exportData = () => {
+                const allData = {
+                    pages: pages,
+                    activePageId: activePageId,
+                    pagesData: {}
+                };
+
+                // Collect all page data
+                pages.forEach(page => {
+                    const pageState = loadPageState(page.id);
+                    if (pageState) {
+                        allData.pagesData[page.id] = pageState;
+                    }
+                });
+
+                // Create and download JSON file
+                const dataStr = JSON.stringify(allData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `kc-edu-data-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
+
+            // Import data
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        
+                        // Validate data structure
+                        if (!importedData.pages || !Array.isArray(importedData.pages)) {
+                            alert('Invalid data format');
+                            return;
+                        }
+
+                        // Import pages
+                        setPages(importedData.pages);
+                        setActivePageId(importedData.activePageId || importedData.pages[0].id);
+
+                        // Import all page data
+                        Object.keys(importedData.pagesData || {}).forEach(pageId => {
+                            persistPageState(parseInt(pageId), importedData.pagesData[pageId]);
+                        });
+
+                        // Persist pages metadata
+                        const pagesMetadata = importedData.pages.map(p => ({ id: p.id, name: p.name }));
+                        persistPages({ pages: pagesMetadata, activePageId: importedData.activePageId || importedData.pages[0].id });
+
+                        // Reload the page to apply changes
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Import error:', error);
+                        alert('Failed to import data. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+                
+                // Reset input so the same file can be imported again
+                event.target.value = '';
+            };
+
+            // Persist current page state
+            useEffect(() => {
+                const stateToSave = {
+                    hrPersonnel,
+                    marketing,
+                    misc,
+                    defaultTeacherSalary,
+                    defaultTeacherCapacity,
+                    course1PricePerHour,
+                    course2PricePerHour,
+                    course2AltPricePerHour,
+                    courseDurationWeeks,
+                    course1HoursPerWeek,
+                    course2ClassHoursPerWeek,
+                    course2AltHoursPerWeek,
+                    course2OneOnOneMinutes,
+                    showFounders,
+                    isConfigCollapsed,
+                    isTeacherPanelExpanded,
+                    course1Classes,
+                    course2Classes,
+                    course2AltClasses,
+                    teachers,
+                };
+
+                // Persist to page-specific storage
+                persistPageState(activePageId, stateToSave);
+            }, [
+                hrPersonnel,
+                marketing,
+                misc,
+                defaultTeacherSalary,
+                defaultTeacherCapacity,
+                course1PricePerHour,
+                course2PricePerHour,
+                course2AltPricePerHour,
+                courseDurationWeeks,
+                course1HoursPerWeek,
+                course2ClassHoursPerWeek,
+                course2AltHoursPerWeek,
+                course2OneOnOneMinutes,
+                showFounders,
+                isConfigCollapsed,
+                isTeacherPanelExpanded,
+                course1Classes,
+                course2Classes,
+                course2AltClasses,
+                teachers,
+            ]);
+
+            // Persist pages metadata (without state data)
+            useEffect(() => {
+                const pagesMetadata = pages.map(p => ({ id: p.id, name: p.name }));
+                persistPages({ pages: pagesMetadata, activePageId });
+            }, [pages, activePageId]);
+
+            useEffect(() => {
+                const updateHeight = () => {
+                    if (classesCardRef.current) {
+                        setTeacherPanelHeight(classesCardRef.current.offsetHeight);
+                    }
+                };
+
+                updateHeight();
+                window.addEventListener('resize', updateHeight);
+
+                return () => window.removeEventListener('resize', updateHeight);
+            }, []);
+
+            // Load page data when switching pages
+            useEffect(() => {
+                const pageState = loadPageState(activePageId);
+                if (pageState) {
+                    setHrPersonnel(pageState.hrPersonnel ?? 28000000);
+                    setMarketing(pageState.marketing ?? 8000000);
+                    setMisc(pageState.misc ?? 4000000);
+                    setDefaultTeacherSalary(pageState.defaultTeacherSalary ?? 8000000);
+                    setDefaultTeacherCapacity(pageState.defaultTeacherCapacity ?? 4);
+                    setCourse1PricePerHour(pageState.course1PricePerHour ?? 250000);
+                    setCourse2PricePerHour(pageState.course2PricePerHour ?? 260000);
+                    setCourse2AltPricePerHour(pageState.course2AltPricePerHour ?? 400000);
+                    setCourseDurationWeeks(pageState.courseDurationWeeks ?? 9);
+                    setCourse1HoursPerWeek(pageState.course1HoursPerWeek ?? 2);
+                    setCourse2ClassHoursPerWeek(pageState.course2ClassHoursPerWeek ?? 2);
+                    setCourse2AltHoursPerWeek(pageState.course2AltHoursPerWeek ?? 2);
+                    setCourse2OneOnOneMinutes(pageState.course2OneOnOneMinutes ?? 20);
+                    setShowFounders(pageState.showFounders ?? false);
+                    setIsConfigCollapsed(pageState.isConfigCollapsed ?? false);
+                    setIsTeacherPanelExpanded(pageState.isTeacherPanelExpanded ?? false);
+                    setCourse1Classes(pageState.course1Classes ?? [
+                        { id: 1, students: 15 },
+                        { id: 2, students: 15 }
+                    ]);
+                    setCourse2Classes(pageState.course2Classes ?? [
+                        { id: 1, students: 12 },
+                        { id: 2, students: 10 }
+                    ]);
+                    setCourse2AltClasses(pageState.course2AltClasses ?? []);
+                    setTeachers(pageState.teachers ?? [
+                        { 
+                            id: 1, 
+                            name: 'Teacher 1',
+                            salary: 8000000,
+                            capacity: 4,
+                            assignments: [
+                                { type: 'course1-class', classId: 1, hours: 2 }
+                            ]
+                        },
+                        { 
+                            id: 2, 
+                            name: 'Teacher 2',
+                            salary: 8000000,
+                            capacity: 4,
+                            assignments: [
+                                { type: 'course1-class', classId: 2, hours: 2 }
+                            ]
+                        },
+                        { 
+                            id: 3, 
+                            name: 'Teacher 3',
+                            salary: 8000000,
+                            capacity: 4,
+                            assignments: [
+                                { type: 'course2-class', classId: 1, hours: 2 }
+                            ]
+                        },
+                        { 
+                            id: 4, 
+                            name: 'Teacher 4',
+                            salary: 8000000,
+                            capacity: 4,
+                            assignments: [
+                                { type: 'course2-oneone', classId: 1, students: 6, hours: 2 }
+                            ]
+                        },
+                        { 
+                            id: 5, 
+                            name: 'Teacher 5',
+                            salary: 8000000,
+                            capacity: 4,
+                            assignments: [
+                                { type: 'course2-oneone', classId: 1, students: 6, hours: 2 }
+                            ]
+                        }
+                    ]);
+                }
+            }, [activePageId]);
+
+            useEffect(() => {
+                if (classesCardRef.current) {
+                    setTeacherPanelHeight(classesCardRef.current.offsetHeight);
+                }
+            }, [course1Classes, course2Classes, course2AltClasses, teachers, course2OneOnOneMinutes, course2ClassHoursPerWeek, course2AltHoursPerWeek, courseDurationWeeks, activePageId]);
+
+            // Modal state for adding one-on-one assignment
+            const [showOneOnOneModal, setShowOneOnOneModal] = useState(false);
+            const [modalData, setModalData] = useState({ teacherId: null, classId: null, students: 1 });
+
+            // Add/remove classes
+            const addClass = (type) => {
+                if (type === 'course1') {
+                    const newId = Math.max(0, ...course1Classes.map(c => c.id)) + 1;
+                    setCourse1Classes([...course1Classes, { id: newId, students: 15 }]);
+                } else if (type === 'course2') {
+                    const newId = Math.max(0, ...course2Classes.map(c => c.id)) + 1;
+                    setCourse2Classes([...course2Classes, { id: newId, students: 6 }]);
+                } else if (type === 'course2alt') {
+                    const newId = Math.max(0, ...course2AltClasses.map(c => c.id), 0) + 1;
+                    setCourse2AltClasses([...course2AltClasses, { id: newId, students: 1 }]);
+                }
+            };
+
+            const removeClass = (type, id) => {
+                if (type === 'course1') {
+                    setCourse1Classes(course1Classes.filter(c => c.id !== id));
+                    setTeachers(teachers.map(t => ({
+                        ...t,
+                        assignments: t.assignments.filter(a => !(a.type === 'course1-class' && a.classId === id))
+                    })));
+                } else if (type === 'course2') {
+                    setCourse2Classes(course2Classes.filter(c => c.id !== id));
+                    setTeachers(teachers.map(t => ({
+                        ...t,
+                        assignments: t.assignments.filter(a => !(
+                            (a.type === 'course2-class' || a.type === 'course2-oneone') && a.classId === id
+                        ))
+                    })));
+                } else if (type === 'course2alt') {
+                    setCourse2AltClasses(course2AltClasses.filter(c => c.id !== id));
+                    setTeachers(teachers.map(t => ({
+                        ...t,
+                        assignments: t.assignments.filter(a => !(a.type === 'course2alt' && a.classId === id))
+                    })));
+                }
+            };
+
+            const updateStudents = (type, id, students) => {
+                const num = parseInt(students) || 0;
+                if (type === 'course1') {
+                    setCourse1Classes(course1Classes.map(c => c.id === id ? { ...c, students: num } : c));
+                } else if (type === 'course2') {
+                    setCourse2Classes(course2Classes.map(c => c.id === id ? { ...c, students: num } : c));
+                } else if (type === 'course2alt') {
+                    setCourse2AltClasses(course2AltClasses.map(c => c.id === id ? { ...c, students: num } : c));
+                    setTeachers(teachers.map(t => ({
+                        ...t,
+                        assignments: t.assignments.map(a => 
+                            a.type === 'course2alt' && a.classId === id
+                                ? { ...a, students: num, hours: num * course2AltHoursPerWeek }
+                                : a
+                        )
+                    })));
+                }
+            };
+
+            // Teacher management
+            const addTeacher = () => {
+                const newId = Math.max(...teachers.map(t => t.id), 0) + 1;
+                setTeachers([...teachers, { 
+                    id: newId, 
+                    name: `Teacher ${newId}`,
+                    salary: defaultTeacherSalary,
+                    capacity: defaultTeacherCapacity,
+                    assignments: []
+                }]);
+            };
+
+            const removeTeacher = (id) => {
+                setTeachers(teachers.filter(t => t.id !== id));
+            };
+
+            const updateTeacherName = (id, name) => {
+                setTeachers(teachers.map(t => t.id === id ? { ...t, name } : t));
+            };
+
+            const updateTeacherSalary = (id, salary) => {
+                setTeachers(teachers.map(t => t.id === id ? { ...t, salary: parseInt(salary) || 0 } : t));
+            };
+
+            const updateTeacherCapacity = (id, capacity) => {
+                setTeachers(teachers.map(t => t.id === id ? { ...t, capacity: parseInt(capacity) || 4 } : t));
+            };
+
+            const addAssignment = (teacherId, assignmentType, classId, studentCount = null) => {
+                let hours = 0;
+                let students = 0;
+
+                if (assignmentType === 'course1-class') {
+                    hours = course1HoursPerWeek;
+                } else if (assignmentType === 'course2-class') {
+                    hours = course2ClassHoursPerWeek;
+                } else if (assignmentType === 'course2-oneone') {
+                    students = studentCount || 0;
+                    hours = (students * course2OneOnOneMinutes) / 60;
+                } else if (assignmentType === 'course2alt') {
+                    const cls = course2AltClasses.find(c => c.id === classId);
+                    students = cls ? cls.students : 1;
+                    hours = students * course2AltHoursPerWeek;
+                }
+
+                setTeachers(teachers.map(t => 
+                    t.id === teacherId 
+                        ? { ...t, assignments: [...t.assignments, { type: assignmentType, classId, hours, students }] }
+                        : t
+                ));
+            };
+
+            const removeAssignment = (teacherId, assignmentIndex) => {
+                setTeachers(teachers.map(t => 
+                    t.id === teacherId 
+                        ? { ...t, assignments: t.assignments.filter((_, idx) => idx !== assignmentIndex) }
+                        : t
+                ));
+            };
+
+            const openOneOnOneModal = (teacherId, classId) => {
+                setModalData({ teacherId, classId, students: 1 });
+                setShowOneOnOneModal(true);
+            };
+
+            const confirmOneOnOneAssignment = () => {
+                addAssignment(modalData.teacherId, 'course2-oneone', modalData.classId, modalData.students);
+                setShowOneOnOneModal(false);
+            };
+
+            // Calculate coverage needs
+            const calculateCoverageNeeds = () => {
+                const needs = {
+                    course1Classes: [],
+                    course2Classes: [],
+                    course2OneOnOne: {},
+                    course2AltClasses: []
+                };
+
+                // Check Course 1 classes
+                course1Classes.forEach(cls => {
+                    const covered = teachers.some(t => 
+                        t.assignments.some(a => a.type === 'course1-class' && a.classId === cls.id)
+                    );
+                    if (!covered) {
+                        needs.course1Classes.push(cls.id);
+                    }
+                });
+
+                // Check Course 2 classes and one-on-one
+                course2Classes.forEach(cls => {
+                    const classCovered = teachers.some(t => 
+                        t.assignments.some(a => a.type === 'course2-class' && a.classId === cls.id)
+                    );
+                    if (!classCovered) {
+                        needs.course2Classes.push(cls.id);
+                    }
+
+                    // Calculate one-on-one coverage
+                    const totalStudents = cls.students;
+                    const coveredStudents = teachers.reduce((sum, t) => {
+                        const assignment = t.assignments.find(a => a.type === 'course2-oneone' && a.classId === cls.id);
+                        return sum + (assignment ? assignment.students : 0);
+                    }, 0);
+
+                    if (coveredStudents < totalStudents) {
+                        needs.course2OneOnOne[cls.id] = {
+                            total: totalStudents,
+                            covered: coveredStudents,
+                            remaining: totalStudents - coveredStudents
+                        };
+                    }
+                });
+
+                // Check Course 2 Alt
+                course2AltClasses.forEach(cls => {
+                    const covered = teachers.some(t => 
+                        t.assignments.some(a => a.type === 'course2alt' && a.classId === cls.id)
+                    );
+                    if (!covered) {
+                        needs.course2AltClasses.push(cls.id);
+                    }
+                });
+
+                return needs;
+            };
+
+            // Calculate revenue
+            const calculateRevenue = () => {
+                const course1Revenue = course1Classes.reduce((sum, cls) => 
+                    sum + cls.students * course1PricePerHour * course1HoursPerWeek * courseDurationWeeks, 0);
+                
+                const course2Revenue = course2Classes.reduce((sum, cls) => {
+                    const hoursPerWeek = course2ClassHoursPerWeek + (course2OneOnOneMinutes / 60);
+                    return sum + cls.students * course2PricePerHour * hoursPerWeek * courseDurationWeeks;
+                }, 0);
+                
+                const course2AltRevenue = course2AltClasses.reduce((sum, cls) => 
+                    sum + cls.students * course2AltPricePerHour * course2AltHoursPerWeek * courseDurationWeeks, 0);
+                
+                return {
+                    course1: course1Revenue,
+                    course2: course2Revenue,
+                    course2Alt: course2AltRevenue,
+                    total: course1Revenue + course2Revenue + course2AltRevenue
+                };
+            };
+
+            // Calculate profit
+            const calculateProfit = () => {
+                const revenue = calculateRevenue();
+                const teacherCosts = teachers.reduce((sum, t) => sum + t.salary, 0);
+                const totalFixedCosts = hrPersonnel + marketing + misc + teacherCosts;
+                const totalCostsFor9Weeks = totalFixedCosts * (courseDurationWeeks / 4.33);
+                
+                const grossProfit = revenue.total - totalCostsFor9Weeks;
+                const netProfit = grossProfit * (1 - taxRate);
+                
+                return {
+                    revenue: revenue.total,
+                    costs: totalCostsFor9Weeks,
+                    grossProfit,
+                    netProfit,
+                    profitMargin: revenue.total > 0 ? (netProfit / revenue.total) * 100 : 0,
+                    teacherCosts: teacherCosts * (courseDurationWeeks / 4.33)
+                };
+            };
+
+            const formatVND = (amount) => {
+                return new Intl.NumberFormat('vi-VN', {
+                    style: 'currency',
+                    currency: 'VND',
+                    minimumFractionDigits: 0
+                }).format(amount);
+            };
+
+            const formatNumber = (num) => {
+                return new Intl.NumberFormat('en-US').format(num);
+            };
+
+            const parseFormattedNumber = (str) => {
+                return parseInt(str.replace(/,/g, '')) || 0;
+            };
+
+            const getAssignmentLabel = (assignment) => {
+                if (assignment.type === 'course1-class') {
+                    return `Course 1 - Class ${assignment.classId}`;
+                } else if (assignment.type === 'course2-class') {
+                    return `Course 2 - Class ${assignment.classId}`;
+                } else if (assignment.type === 'course2-oneone') {
+                    return `Course 2 - One-on-One (Class ${assignment.classId}, ${assignment.students} students)`;
+                } else if (assignment.type === 'course2alt') {
+                    return `Course 2 Alt - Slot ${assignment.classId}`;
+                }
+                return 'Unknown';
+            };
+
+            const getAssignmentBadgeClass = (type) => {
+                if (type === 'course1-class') return 'badge-course1';
+                if (type === 'course2-class') return 'badge-course2';
+                if (type === 'course2-oneone') return 'badge-oneone';
+                if (type === 'course2alt') return 'badge-course2alt';
+                return '';
+            };
+
+            const coverageNeeds = calculateCoverageNeeds();
+            const revenue = calculateRevenue();
+            const profit = calculateProfit();
+
+            const totalStudents = course1Classes.reduce((sum, c) => sum + c.students, 0) +
+                                 course2Classes.reduce((sum, c) => sum + c.students, 0) +
+                                 course2AltClasses.reduce((sum, c) => sum + c.students, 0);
+
+            const totalHoursNeeded = teachers.reduce((sum, t) => 
+                sum + t.assignments.reduce((s, a) => s + a.hours, 0), 0);
+            const totalCapacity = teachers.reduce((sum, t) => sum + t.capacity, 0);
+
+            const hasUncoveredNeeds = coverageNeeds.course1Classes.length > 0 || 
+                                     coverageNeeds.course2Classes.length > 0 || 
+                                     Object.keys(coverageNeeds.course2OneOnOne).length > 0 ||
+                                     coverageNeeds.course2AltClasses.length > 0;
+
+            const teacherWarnings = useMemo(() => {
+                const warnings = {};
+
+                const findClassForAssignment = (assignment) => {
+                    if (assignment.type === 'course1-class') {
+                        return course1Classes.find(c => c.id === assignment.classId);
+                    }
+                    if (assignment.type === 'course2-class' || assignment.type === 'course2-oneone') {
+                        return course2Classes.find(c => c.id === assignment.classId);
+                    }
+                    if (assignment.type === 'course2alt') {
+                        return course2AltClasses.find(c => c.id === assignment.classId);
+                    }
+                    return null;
+                };
+
+                teachers.forEach(teacher => {
+                    const teacherMessages = [];
+                    const assignmentMessages = {};
+
+                    const totalHours = teacher.assignments.reduce((sum, a) => sum + a.hours, 0);
+                    if (totalHours > teacher.capacity) {
+                        teacherMessages.push(`Total assigned hours (${totalHours.toFixed(1)}h) exceed capacity (${teacher.capacity}h).`);
+                    }
+
+                    teacher.assignments.forEach((assignment, idx) => {
+                        const messages = [];
+                        const relatedClass = findClassForAssignment(assignment);
+
+                        if (!relatedClass) {
+                            messages.push(`Linked ${getAssignmentLabel(assignment)} does not match an existing class.`);
+                        }
+
+                        if (assignment.type === 'course2-oneone' && relatedClass) {
+                            if ((assignment.students || 0) > relatedClass.students) {
+                                messages.push(`Assigned ${assignment.students} one-on-one students but class ${relatedClass.id} has only ${relatedClass.students}.`);
+                            }
+                        }
+
+                        if (messages.length > 0) {
+                            assignmentMessages[idx] = messages;
+                        }
+                    });
+
+                    if (teacherMessages.length > 0 || Object.keys(assignmentMessages).length > 0) {
+                        warnings[teacher.id] = {
+                            teacher: teacherMessages,
+                            assignments: assignmentMessages
+                        };
+                    }
+                });
+
+                return warnings;
+            }, [teachers, course1Classes, course2Classes, course2AltClasses]);
+
+            const coveredCourse1ClassIds = useMemo(() => {
+                const covered = new Set();
+                teachers.forEach(teacher => {
+                    teacher.assignments.forEach(assignment => {
+                        if (assignment.type === 'course1-class') {
+                            covered.add(assignment.classId);
+                        }
+                    });
+                });
+                return covered;
+            }, [teachers]);
+
+            const coveredCourse2ClassIds = useMemo(() => {
+                const covered = new Set();
+                teachers.forEach(teacher => {
+                    teacher.assignments.forEach(assignment => {
+                        if (assignment.type === 'course2-class') {
+                            covered.add(assignment.classId);
+                        }
+                    });
+                });
+                return covered;
+            }, [teachers]);
+
+            const coveredCourse2AltClassIds = useMemo(() => {
+                const covered = new Set();
+                teachers.forEach(teacher => {
+                    teacher.assignments.forEach(assignment => {
+                        if (assignment.type === 'course2alt') {
+                            covered.add(assignment.classId);
+                        }
+                    });
+                });
+                return covered;
+            }, [teachers]);
+
+            const course2OneOnOneCoverage = useMemo(() => {
+                const coverage = new Map();
+                teachers.forEach(teacher => {
+                    teacher.assignments.forEach(assignment => {
+                        if (assignment.type === 'course2-oneone') {
+                            const current = coverage.get(assignment.classId) || 0;
+                            coverage.set(assignment.classId, current + (assignment.students || 0));
+                        }
+                    });
+                });
+                return coverage;
+            }, [teachers]);
+
+            return (
+                <div className="min-h-screen p-6">
+                    <div className="max-w-7xl mx-auto">
+                        {/* Page Tabs */}
+                        <div className="card mb-6">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2 overflow-x-auto flex-1">
+                                    {pages.map(page => {
+                                        const isEditing = editingPageId === page.id;
+                                        return (
+                                            <div 
+                                                key={page.id}
+                                                onClick={!isEditing ? () => setActivePageId(page.id) : undefined}
+                                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                                                    page.id === activePageId 
+                                                        ? 'bg-blue-500 text-white shadow-md' 
+                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                {isEditing ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={editingPageName}
+                                                            onChange={(e) => setEditingPageName(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') savePageName();
+                                                                if (e.key === 'Escape') cancelEditingPageName();
+                                                            }}
+                                                            className="px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                                                            autoFocus
+                                                        />
+                                                        <button
+                                                            onClick={savePageName}
+                                                            className="text-xs px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                                                        >
+                                                            ✓
+                                                        </button>
+                                                        <button
+                                                            onClick={cancelEditingPageName}
+                                                            className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <span
+                                                            onDoubleClick={(e) => {
+                                                                e.stopPropagation();
+                                                                startEditingPageName(page.id, page.name);
+                                                            }}
+                                                            className="font-semibold text-sm cursor-pointer"
+                                                            title="Double click to rename page"
+                                                        >
+                                                            {page.name}
+                                                        </span>
+                                                        {pages.length > 1 && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    deletePage(page.id);
+                                                                }}
+                                                                className="text-xs opacity-70 hover:opacity-100"
+                                                                title="Delete page"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    <button
+                                        onClick={addNewPage}
+                                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-semibold text-sm whitespace-nowrap"
+                                    >
+                                        + New Page
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={exportData}
+                                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-semibold text-sm whitespace-nowrap"
+                                        title="Export all data to JSON file"
+                                    >
+                                        📥 Export
+                                    </button>
+                                    <label className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all font-semibold text-sm whitespace-nowrap cursor-pointer"
+                                        title="Import data from JSON file">
+                                        📤 Import
+                                        <input
+                                            type="file"
+                                            accept=".json"
+                                            onChange={importData}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <header className="mb-8">
+                            <h1 className="text-4xl font-bold text-gray-900 mb-2">KC EDU - Course Management Dashboard</h1>
+                            <p className="text-gray-600">Define classes, assign teachers with custom salaries/hours, and flexible one-on-one coverage</p>
+                        </header>
+
+                        {/* Editable Costs Section */}
+                        <div className="card mb-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-xl font-bold text-gray-900">⚙️ Configuration</h2>
+                                <button
+                                    onClick={() => setIsConfigCollapsed(prev => !prev)}
+                                    className="btn btn-small btn-primary"
+                                >
+                                    {isConfigCollapsed ? 'Expand' : 'Collapse'}
+                                </button>
+                            </div>
+
+                            {!isConfigCollapsed && (
+                            <>
+                            {/* Session Settings */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">📅 Session Settings</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="editable-field">
+                                        <label>Course Duration:</label>
+                                        <input 
+                                            type="number" 
+                                            value={courseDurationWeeks}
+                                            onChange={(e) => setCourseDurationWeeks(parseInt(e.target.value) || 9)}
+                                            className="flex-1"
+                                            min="1"
+                                        />
+                                        <span className="text-sm text-gray-600">weeks</span>
+                                    </div>
+                                    <div className="editable-field">
+                                        <label>Course 2 One-on-One:</label>
+                                        <input 
+                                            type="number" 
+                                            value={course2OneOnOneMinutes}
+                                            onChange={(e) => setCourse2OneOnOneMinutes(parseInt(e.target.value) || 20)}
+                                            className="flex-1"
+                                            min="5"
+                                            step="5"
+                                        />
+                                        <span className="text-sm text-gray-600">min/student</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Course Hours */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">⏰ Course Hours per Week</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="editable-field">
+                                        <label>Course 1 Hours/Week:</label>
+                                        <input 
+                                            type="number" 
+                                            value={course1HoursPerWeek}
+                                            onChange={(e) => setCourse1HoursPerWeek(parseFloat(e.target.value) || 2)}
+                                            className="flex-1"
+                                            min="0.5"
+                                            step="0.5"
+                                        />
+                                        <span className="text-sm text-gray-600">hours</span>
+                                    </div>
+                                    <div className="editable-field">
+                                        <label>Course 2 Class Hours/Week:</label>
+                                        <input 
+                                            type="number" 
+                                            value={course2ClassHoursPerWeek}
+                                            onChange={(e) => setCourse2ClassHoursPerWeek(parseFloat(e.target.value) || 2)}
+                                            className="flex-1"
+                                            min="0.5"
+                                            step="0.5"
+                                        />
+                                        <span className="text-sm text-gray-600">hours</span>
+                                    </div>
+                                    <div className="editable-field">
+                                        <label>Course 2 Alt Hours/Week:</label>
+                                        <input 
+                                            type="number" 
+                                            value={course2AltHoursPerWeek}
+                                            onChange={(e) => setCourse2AltHoursPerWeek(parseFloat(e.target.value) || 2)}
+                                            className="flex-1"
+                                            min="0.5"
+                                            step="0.5"
+                                        />
+                                        <span className="text-sm text-gray-600">hours</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Pricing */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">💵 Pricing (per hour per student)</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="editable-field">
+                                        <label>Course 1 Price/Hour:</label>
+                                        <input 
+                                            type="text" 
+                                            value={formatNumber(course1PricePerHour)}
+                                            onChange={(e) => setCourse1PricePerHour(parseFormattedNumber(e.target.value))}
+                                            className="flex-1"
+                                        />
+                                        <span className="text-sm text-gray-600">VND</span>
+                                    </div>
+                                    <div className="editable-field">
+                                        <label>Course 2 Price/Hour:</label>
+                                        <input 
+                                            type="text" 
+                                            value={formatNumber(course2PricePerHour)}
+                                            onChange={(e) => setCourse2PricePerHour(parseFormattedNumber(e.target.value))}
+                                            className="flex-1"
+                                        />
+                                        <span className="text-sm text-gray-600">VND</span>
+                                    </div>
+                                    <div className="editable-field">
+                                        <label>Course 2 Alt Price/Hour:</label>
+                                        <input 
+                                            type="text" 
+                                            value={formatNumber(course2AltPricePerHour)}
+                                            onChange={(e) => setCourse2AltPricePerHour(parseFormattedNumber(e.target.value))}
+                                            className="flex-1"
+                                        />
+                                        <span className="text-sm text-gray-600">VND</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Fixed Costs */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">💰 Fixed Costs (per month)</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="editable-field">
+                                    <label>HR Personnel:</label>
+                                    <input 
+                                        type="text" 
+                                        value={formatNumber(hrPersonnel)}
+                                        onChange={(e) => setHrPersonnel(parseFormattedNumber(e.target.value))}
+                                        className="flex-1"
+                                    />
+                                    <span className="text-sm text-gray-600">VND/month</span>
+                                </div>
+                                <div className="editable-field">
+                                    <label>Marketing:</label>
+                                    <input 
+                                        type="text" 
+                                        value={formatNumber(marketing)}
+                                        onChange={(e) => setMarketing(parseFormattedNumber(e.target.value))}
+                                        className="flex-1"
+                                    />
+                                    <span className="text-sm text-gray-600">VND/month</span>
+                                </div>
+                                <div className="editable-field">
+                                    <label>Miscellaneous:</label>
+                                    <input 
+                                        type="text" 
+                                        value={formatNumber(misc)}
+                                        onChange={(e) => setMisc(parseFormattedNumber(e.target.value))}
+                                        className="flex-1"
+                                    />
+                                    <span className="text-sm text-gray-600">VND/month</span>
+                                </div>
+                                </div>
+                            </div>
+
+                            {/* Teacher Defaults */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">👨‍🏫 Teacher Defaults</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="editable-field">
+                                        <label>Default Teacher Salary:</label>
+                                        <input 
+                                            type="text" 
+                                            value={formatNumber(defaultTeacherSalary)}
+                                            onChange={(e) => setDefaultTeacherSalary(parseFormattedNumber(e.target.value))}
+                                            className="flex-1"
+                                        />
+                                        <span className="text-sm text-gray-600">VND/month</span>
+                                    </div>
+                                    <div className="editable-field">
+                                        <label>Default Teacher Hours:</label>
+                                        <input 
+                                            type="number" 
+                                            value={defaultTeacherCapacity}
+                                            onChange={(e) => setDefaultTeacherCapacity(parseInt(e.target.value) || 1)}
+                                            className="flex-1"
+                                            min="1"
+                                        />
+                                        <span className="text-sm text-gray-600">hours/week</span>
+                                    </div>
+                                </div>
+                            </div>
+                            </>
+                            )}
+                        </div>
+
+                        {/* Founders Toggle */}
+                        <div className="card mb-6">
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={showFounders}
+                                        onChange={(e) => setShowFounders(e.target.checked)}
+                                        className="w-5 h-5 mr-2"
+                                    />
+                                    <span className="text-lg font-semibold text-gray-900">FID</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Key Metrics */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div className={`metric-card ${profit.netProfit > 0 ? 'positive' : 'negative'}`}>
+                                <div className="metric-label">Net Profit ({courseDurationWeeks} weeks)</div>
+                                <div className="metric-value">{formatVND(profit.netProfit)}</div>
+                                <div className="metric-label">Margin: {profit.profitMargin.toFixed(1)}%</div>
+                            </div>
+
+                            <div className="metric-card info">
+                                <div className="metric-label">Total Revenue</div>
+                                <div className="metric-value">{formatVND(revenue.total)}</div>
+                                <div className="metric-label">{totalStudents} students total</div>
+                            </div>
+
+                            <div className="metric-card" style={{background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'}}>
+                                <div className="metric-label">Teachers Hired</div>
+                                <div className="metric-value">{teachers.length}</div>
+                                <div className="metric-label">{formatVND(profit.teacherCosts)} for {courseDurationWeeks} weeks</div>
+                            </div>
+
+                            <div className={`metric-card ${totalHoursNeeded > totalCapacity ? 'negative' : 'positive'}`}>
+                                <div className="metric-label">Total Hours</div>
+                                <div className="metric-value">{totalHoursNeeded.toFixed(1)}h</div>
+                                <div className="metric-label">
+                                    Capacity: {totalCapacity}h | {totalCapacity > 0 ? ((totalHoursNeeded / totalCapacity) * 100).toFixed(0) : 0}%
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Founders Income Distribution */}
+                        {showFounders && profit.netProfit > 0 && (
+                            <div className="card mb-6">
+                                <h3 className="text-xl font-bold mb-4 text-gray-900">👥 Founders Income Distribution ({courseDurationWeeks} weeks)</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                    {founderNames.map((name, idx) => {
+                                        const percentage = founderPercentages[idx];
+                                        const monthlyIncome = (profit.netProfit / courseDurationWeeks) * 4.33;
+                                        const founderShare = monthlyIncome * (percentage / 100);
+                                        const totalForPeriod = (profit.netProfit * percentage) / 100;
+                                        
+                                        return (
+                                            <div key={idx} className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border-2 border-indigo-200">
+                                                <div className="text-sm font-semibold text-gray-700 mb-1">{name}</div>
+                                                <div className="text-xs text-gray-600 mb-2">{percentage}% share</div>
+                                                <div className="text-lg font-bold text-indigo-600 mb-1">{formatVND(founderShare)}</div>
+                                                <div className="text-xs text-gray-500">per month</div>
+                                                <div className="text-sm font-semibold text-purple-600 mt-2 pt-2 border-t border-indigo-200">
+                                                    {formatVND(totalForPeriod)}
+                                                </div>
+                                                <div className="text-xs text-gray-500">total ({courseDurationWeeks} weeks)</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Cost and Revenue Breakdown - Moved to Top */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Cost Breakdown */}
+                            <div className="card">
+                                <h3 className="text-xl font-bold mb-4 text-gray-900">💰 Cost Breakdown ({courseDurationWeeks} weeks)</h3>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">HR Personnel</span>
+                                        <span className="font-semibold">{formatVND(hrPersonnel * courseDurationWeeks/4.33)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Marketing</span>
+                                        <span className="font-semibold">{formatVND(marketing * courseDurationWeeks/4.33)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Teachers ({teachers.length})</span>
+                                        <span className="font-semibold">{formatVND(profit.teacherCosts)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Miscellaneous</span>
+                                        <span className="font-semibold">{formatVND(misc * courseDurationWeeks/4.33)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-gray-200">
+                                        <span>Total Costs</span>
+                                        <span>{formatVND(profit.costs)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Revenue Breakdown */}
+                            <div className="card">
+                                <h3 className="text-xl font-bold mb-4 text-gray-900">💵 Revenue Breakdown ({courseDurationWeeks} weeks)</h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                        <div>
+                                            <div className="font-semibold text-gray-700">Course 1</div>
+                                            <div className="text-xs text-gray-600">
+                                                {course1Classes.length} classes, {course1Classes.reduce((sum, c) => sum + c.students, 0)} students
+                                            </div>
+                                        </div>
+                                        <span className="font-bold text-blue-600">{formatVND(revenue.course1)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                                        <div>
+                                            <div className="font-semibold text-gray-700">Course 2</div>
+                                            <div className="text-xs text-gray-600">
+                                                {course2Classes.length} classes, {course2Classes.reduce((sum, c) => sum + c.students, 0)} students
+                                            </div>
+                                        </div>
+                                        <span className="font-bold text-purple-600">{formatVND(revenue.course2)}</span>
+                                    </div>
+                                    {course2AltClasses.length > 0 && (
+                                        <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                                            <div>
+                                                <div className="font-semibold text-gray-700">Course 2 Alt</div>
+                                                <div className="text-xs text-gray-600">
+                                                    {course2AltClasses.length} slots, {course2AltClasses.reduce((sum, c) => sum + c.students, 0)} students
+                                                </div>
+                                            </div>
+                                            <span className="font-bold text-orange-600">{formatVND(revenue.course2Alt)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-gray-200">
+                                        <span>Total Revenue</span>
+                                        <span>{formatVND(revenue.total)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Coverage Needs Alert */}
+                        {hasUncoveredNeeds && (
+                            <div className="card bg-red-50 border-2 border-red-200 mb-6">
+                                <h3 className="text-xl font-bold text-red-900 mb-3">⚠️ Uncovered Classes/Sessions</h3>
+                                <div className="space-y-2 text-red-800">
+                                    {coverageNeeds.course1Classes.length > 0 && (
+                                        <div>• <strong>Course 1 Classes:</strong> {coverageNeeds.course1Classes.join(', ')} need teacher assignment</div>
+                                    )}
+                                    {coverageNeeds.course2Classes.length > 0 && (
+                                        <div>• <strong>Course 2 Classes:</strong> {coverageNeeds.course2Classes.join(', ')} need teacher assignment</div>
+                                    )}
+                                    {Object.keys(coverageNeeds.course2OneOnOne).length > 0 && (
+                                        <div>
+                                            • <strong>Course 2 One-on-One:</strong>
+                                            {Object.entries(coverageNeeds.course2OneOnOne).map(([classId, data]) => (
+                                                <div key={classId} className="ml-4">
+                                                    Class {classId}: {data.remaining} of {data.total} students need coverage ({data.covered} covered)
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {coverageNeeds.course2AltClasses.length > 0 && (
+                                        <div>• <strong>Course 2 Alt:</strong> Slots {coverageNeeds.course2AltClasses.join(', ')} need teacher assignment</div>
+                                    )}
+                                </div>
+                                <div className="mt-3 text-red-900 font-semibold">
+                                    💡 Add teachers below and assign them to cover these gaps
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Left: Classes Configuration */}
+                            <div className="space-y-6">
+                                <div className="card" ref={classesCardRef}>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-4">📚 Classes (Baseline)</h2>
+                                    <p className="text-sm text-gray-600 mb-4">Define your classes first. Teachers will be assigned to cover these.</p>
+
+                                    {/* Course 1 */}
+                                    <div className="mb-6">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="text-lg font-bold text-gray-900">Course 1: Read/Listen</h3>
+                                            <button onClick={() => addClass('course1')} className="btn btn-success btn-small">+ Add</button>
+                                        </div>
+                                        <div className="text-xs text-gray-600 mb-2">{course1HoursPerWeek}h/week per class | {formatVND(course1PricePerHour)}/h/student</div>
+                                        <div className="space-y-2">
+                                            {course1Classes.map(cls => {
+                                                const covered = teachers.some(t => 
+                                                    t.assignments.some(a => a.type === 'course1-class' && a.classId === cls.id)
+                                                );
+                                                return (
+                                                    <div key={cls.id} className={`flex items-center gap-3 p-3 rounded-lg ${covered ? 'bg-green-50' : 'bg-red-50'}`}>
+                                                        <span className="font-semibold text-gray-700 min-w-[70px]">Class {cls.id}</span>
+                                                        <input 
+                                                            type="number" 
+                                                            className="small"
+                                                            value={cls.students}
+                                                            onChange={(e) => updateStudents('course1', cls.id, e.target.value)}
+                                                            min="1"
+                                                        />
+                                                        <span className="text-sm text-gray-600">students</span>
+                                                        <span className={`text-xs ml-auto ${covered ? 'text-green-600' : 'text-red-600'} font-semibold`}>
+                                                            {covered ? '✓ Covered' : '✗ No teacher'}
+                                                        </span>
+                                                        <button onClick={() => removeClass('course1', cls.id)} className="btn btn-danger btn-small">×</button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Course 2 */}
+                                    <div className="mb-6">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="text-lg font-bold text-gray-900">Course 2: Write/Speak</h3>
+                                            <button onClick={() => addClass('course2')} className="btn btn-success btn-small">+ Add</button>
+                                        </div>
+                                        <div className="text-xs text-gray-600 mb-2">{course2ClassHoursPerWeek}h class + {course2OneOnOneMinutes}min/student one-on-one | {formatVND(course2PricePerHour)}/h/student</div>
+                                        <div className="space-y-2">
+                                            {course2Classes.map(cls => {
+                                                const classCovered = teachers.some(t => 
+                                                    t.assignments.some(a => a.type === 'course2-class' && a.classId === cls.id)
+                                                );
+                                                const totalStudents = cls.students;
+                                                const coveredStudents = teachers.reduce((sum, t) => {
+                                                    const assignment = t.assignments.find(a => a.type === 'course2-oneone' && a.classId === cls.id);
+                                                    return sum + (assignment ? assignment.students : 0);
+                                                }, 0);
+                                                const oneOnOneCovered = coveredStudents >= totalStudents;
+                                                
+                                                return (
+                                                    <div key={cls.id} className="p-3 bg-purple-50 rounded-lg">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <span className="font-semibold text-gray-700 min-w-[70px]">Class {cls.id}</span>
+                                                            <input 
+                                                                type="number" 
+                                                                className="small"
+                                                                value={cls.students}
+                                                                onChange={(e) => updateStudents('course2', cls.id, e.target.value)}
+                                                                min="1"
+                                                            />
+                                                            <span className="text-sm text-gray-600">students</span>
+                                                            <button onClick={() => removeClass('course2', cls.id)} className="btn btn-danger btn-small ml-auto">×</button>
+                                                        </div>
+                                                        <div className="text-xs text-gray-700 ml-[70px] space-y-1">
+                                                            <div className={classCovered ? 'text-green-600' : 'text-red-600'}>
+                                                                {classCovered ? '✓' : '✗'} Class teaching (2h)
+                                                            </div>
+                                                            <div className={oneOnOneCovered ? 'text-green-600' : 'text-orange-600'}>
+                                                                {oneOnOneCovered ? '✓' : '⚠'} One-on-one: {coveredStudents}/{totalStudents} students covered
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Course 2 Alt */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="text-lg font-bold text-gray-900">Course 2 Alt: One-on-One</h3>
+                                            <button onClick={() => addClass('course2alt')} className="btn btn-success btn-small">+ Add</button>
+                                        </div>
+                                        <div className="text-xs text-gray-600 mb-2">{course2AltHoursPerWeek}h/week per student | {formatVND(course2AltPricePerHour)}/h/student</div>
+                                        {course2AltClasses.length === 0 ? (
+                                            <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-lg">
+                                                No Course 2 Alt classes. Click "+ Add" to create one.
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {course2AltClasses.map(cls => {
+                                                    const covered = teachers.some(t => 
+                                                        t.assignments.some(a => a.type === 'course2alt' && a.classId === cls.id)
+                                                    );
+                                                    return (
+                                                        <div key={cls.id} className={`flex items-center gap-3 p-3 rounded-lg ${covered ? 'bg-green-50' : 'bg-red-50'}`}>
+                                                            <span className="font-semibold text-gray-700 min-w-[70px]">Slot {cls.id}</span>
+                                                            <input 
+                                                                type="number" 
+                                                                className="small"
+                                                                value={cls.students}
+                                                                onChange={(e) => updateStudents('course2alt', cls.id, e.target.value)}
+                                                                min="1"
+                                                            />
+                                                            <span className="text-sm text-gray-600">student(s)</span>
+                                                            <span className={`text-xs ml-auto ${covered ? 'text-green-600' : 'text-red-600'} font-semibold`}>
+                                                                {covered ? '✓ Covered' : '✗ No teacher'}
+                                                            </span>
+                                                            <button onClick={() => removeClass('course2alt', cls.id)} className="btn btn-danger btn-small">×</button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right: Teachers */}
+                            <div className="relative">
+                                {/* Floating Add Teacher Button */}
+                                <button 
+                                    onClick={addTeacher} 
+                                    className="absolute -top-2 -right-2 z-10 btn btn-primary shadow-lg hover:shadow-xl"
+                                    title="Add new teacher"
+                                >
+                                    + Add Teacher
+                                </button>
+
+                                <div 
+                                    className={`card transition-all duration-300 ${isTeacherPanelExpanded ? 'shadow-xl' : ''}`}
+                                    style={{
+                                        overflowY: 'auto',
+                                        maxHeight: isTeacherPanelExpanded ? 'none' : (teacherPanelHeight ? `${teacherPanelHeight}px` : 'auto')
+                                    }}
+                                >
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-gray-900">👨‍🏫 Teachers</h2>
+                                            <p className="text-sm text-gray-600">Assign teachers to classes and one-on-one sessions. Customize salary and hours per teacher.</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={() => setIsTeacherPanelExpanded(prev => !prev)}
+                                                className="btn btn-small btn-success"
+                                            >
+                                                {isTeacherPanelExpanded ? 'Collapse' : 'Expand'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-sm text-gray-600 mb-4">
+                                        {isTeacherPanelExpanded ? 'Scroll to view all teachers.' : 'Scroll within this panel to view teachers. Expand for full height.'}
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {teachers.map(teacher => {
+                                            const totalHours = teacher.assignments.reduce((sum, a) => sum + a.hours, 0);
+                                            const utilization = (totalHours / teacher.capacity) * 100;
+                                            const isOverCapacity = utilization > 100;
+                                            const isNearCapacity = utilization > 90 && utilization <= 100;
+                                            const teacherWarning = teacherWarnings[teacher.id];
+
+                                            return (
+                                                <div key={teacher.id} className="teacher-card">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <input 
+                                                                    type="text"
+                                                                    className="w-56 font-bold text-gray-900 text-lg border-2 border-gray-200 rounded-md px-3 py-1"
+                                                                    value={teacher.name}
+                                                                    onChange={(e) => updateTeacherName(teacher.id, e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-600">Salary:</span>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        className="large"
+                                                                        value={formatNumber(teacher.salary)}
+                                                                        onChange={(e) => updateTeacherSalary(teacher.id, parseFormattedNumber(e.target.value))}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-600">Hours:</span>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        className="small"
+                                                                        value={teacher.capacity}
+                                                                        onChange={(e) => updateTeacherCapacity(teacher.id, e.target.value)}
+                                                                        min="1"
+                                                                    />
+                                                                    <span className="text-xs">/week</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-sm text-gray-600 mt-1">
+                                                                Using: {totalHours.toFixed(1)}h / {teacher.capacity}h ({utilization.toFixed(0)}%)
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => removeTeacher(teacher.id)} 
+                                                            className="btn btn-danger btn-small"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="progress-bar mb-3">
+                                                        <div 
+                                                            className={`progress-fill ${
+                                                                isOverCapacity ? 'progress-over' : 
+                                                                isNearCapacity ? 'progress-warning' : 
+                                                                'progress-good'
+                                                            }`}
+                                                            style={{ width: `${Math.min(utilization, 100)}%` }}
+                                                        >
+                                                            {utilization > 15 && `${utilization.toFixed(0)}%`}
+                                                        </div>
+                                                    </div>
+
+                                                    {teacherWarning?.teacher?.length > 0 && (
+                                                        <div className="mb-3 p-3 border border-red-200 bg-red-50 rounded-lg text-xs text-red-700 space-y-1">
+                                                            {teacherWarning.teacher.map((msg, warningIdx) => (
+                                                                <div key={warningIdx}>⚠ {msg}</div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Assignments */}
+                                                    <div className="mb-3">
+                                                        <div className="text-sm font-semibold text-gray-700 mb-2">Assignments:</div>
+                                                        {teacher.assignments.length === 0 ? (
+                                                            <div className="text-sm text-gray-500 italic">No assignments yet</div>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                {teacher.assignments.map((assignment, idx) => (
+                                                                    <div key={idx} className="space-y-1">
+                                                                    <div className="assignment-item">
+                                                                        <span className={`class-badge ${getAssignmentBadgeClass(assignment.type)}`}>
+                                                                            {getAssignmentLabel(assignment)}
+                                                                        </span>
+                                                                        <span className="text-gray-600 ml-auto">{assignment.hours.toFixed(1)}h</span>
+                                                                        <button 
+                                                                            onClick={() => removeAssignment(teacher.id, idx)}
+                                                                            className="text-red-600 hover:text-red-800 font-bold"
+                                                                        >
+                                                                            ×
+                                                                        </button>
+                                                                    </div>
+                                                                    {teacherWarning?.assignments?.[idx] && (
+                                                                        <div className="text-xs text-red-600 ml-2">
+                                                                            {teacherWarning.assignments[idx].map((msg, warningIdx) => (
+                                                                                <div key={warningIdx}>⚠ {msg}</div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Add Assignment */}
+                                                    <div className="pt-3 border-t border-gray-200">
+                                                        <div className="text-sm font-semibold text-gray-700 mb-2">Add Assignment:</div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {course1Classes.map(cls => {
+                                                                const isCovered = coveredCourse1ClassIds.has(cls.id);
+                                                                if (isCovered) return null;
+                                                                return (
+                                                                    <button
+                                                                        key={`c1-${cls.id}`}
+                                                                        onClick={() => addAssignment(teacher.id, 'course1-class', cls.id)}
+                                                                        className="btn btn-primary btn-small text-xs"
+                                                                        disabled={teacher.assignments.some(a => a.type === 'course1-class' && a.classId === cls.id)}
+                                                                    >
+                                                                        C1 Class {cls.id}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                            {course2Classes.map(cls => {
+                                                                const classCovered = coveredCourse2ClassIds.has(cls.id);
+                                                                const totalStudents = cls.students;
+                                                                const coveredStudents = course2OneOnOneCoverage.get(cls.id) || 0;
+                                                                const oneOnOneCovered = coveredStudents >= totalStudents;
+
+                                                                return (
+                                                                    <React.Fragment key={`c2-${cls.id}`}>
+                                                                        {!classCovered && (
+                                                                            <button
+                                                                                onClick={() => addAssignment(teacher.id, 'course2-class', cls.id)}
+                                                                                className="btn btn-primary btn-small text-xs"
+                                                                                disabled={teacher.assignments.some(a => a.type === 'course2-class' && a.classId === cls.id)}
+                                                                            >
+                                                                                C2 Class {cls.id}
+                                                                            </button>
+                                                                        )}
+                                                                        {!oneOnOneCovered && (
+                                                                            <button
+                                                                                onClick={() => openOneOnOneModal(teacher.id, cls.id)}
+                                                                                className="btn btn-primary btn-small text-xs"
+                                                                            >
+                                                                                C2 1-on-1 {cls.id}
+                                                                            </button>
+                                                                        )}
+                                                                    </React.Fragment>
+                                                                );
+                                                            })}
+                                                            {course2AltClasses.map(cls => {
+                                                                const isCovered = coveredCourse2AltClassIds.has(cls.id);
+                                                                if (isCovered) return null;
+                                                                return (
+                                                                    <button
+                                                                        key={`c2a-${cls.id}`}
+                                                                        onClick={() => addAssignment(teacher.id, 'course2alt', cls.id)}
+                                                                        className="btn btn-primary btn-small text-xs"
+                                                                        disabled={teacher.assignments.some(a => a.type === 'course2alt' && a.classId === cls.id)}
+                                                                    >
+                                                                        C2 Alt {cls.id}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Modal for One-on-One Assignment */}
+                    {showOneOnOneModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                                <h3 className="text-xl font-bold mb-4">Assign One-on-One Students</h3>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    How many students from Class {modalData.classId} should this teacher handle for one-on-one sessions?
+                                </p>
+                                <div className="mb-4">
+                                    <label className="block font-semibold mb-2">Number of Students:</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full"
+                                        value={modalData.students}
+                                        onChange={(e) => setModalData({...modalData, students: parseInt(e.target.value) || 1})}
+                                        min="1"
+                                        max={course2Classes.find(c => c.id === modalData.classId)?.students || 1}
+                                    />
+                                    <div className="text-xs text-gray-600 mt-1">
+                                        Hours needed: {((modalData.students * course2OneOnOneMinutes) / 60).toFixed(1)}h ({course2OneOnOneMinutes} min per student)
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={confirmOneOnOneAssignment}
+                                        className="btn btn-primary flex-1"
+                                    >
+                                        Confirm
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowOneOnOneModal(false)}
+                                        className="btn btn-danger flex-1"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<FinancialAnalysisDashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>

@@ -10,11 +10,10 @@
     },
     {
       "id": 7,
-      "name": "Balanced pricing of course 2",
-      "state": null
+      "name": "Balanced pricing of course 2"
     }
   ],
-  "activePageId": 7,
+  "activePageId": 6,
   "pagesData": {
     "5": {
       "hrPersonnel": 28000000,
@@ -138,16 +137,24 @@
       ],
       "course2Classes": [
         {
-          "id": 1,
-          "students": 8
-        },
-        {
           "id": 2,
-          "students": 8
+          "students": 10
         },
         {
           "id": 3,
-          "students": 8
+          "students": 10
+        },
+        {
+          "id": 5,
+          "students": 10
+        },
+        {
+          "id": 6,
+          "students": 12
+        },
+        {
+          "id": 7,
+          "students": 12
         }
       ],
       "course2AltClasses": [
@@ -195,7 +202,7 @@
             },
             {
               "type": "course2-class",
-              "classId": 1,
+              "classId": 5,
               "hours": 2,
               "students": 0
             }
@@ -215,7 +222,7 @@
             },
             {
               "type": "course2-oneone",
-              "classId": 1,
+              "classId": 5,
               "hours": 2,
               "students": 6
             }
@@ -302,28 +309,106 @@
           ]
         },
         {
-          "id": 8,
-          "name": "Teacher 8",
-          "salary": 6000000,
-          "capacity": 3,
+          "id": 9,
+          "name": "Teacher 9",
+          "salary": 8000000,
+          "capacity": 4,
           "assignments": [
             {
-              "type": "course2-oneone",
-              "classId": 1,
-              "hours": 1,
-              "students": 3
+              "type": "course2-class",
+              "classId": 7,
+              "hours": 2,
+              "students": 0
             },
             {
               "type": "course2-oneone",
+              "classId": 7,
+              "hours": 2,
+              "students": 6
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "name": "Teacher 10",
+          "salary": 8000000,
+          "capacity": 4,
+          "assignments": [
+            {
+              "type": "course2-oneone",
               "classId": 2,
-              "hours": 1,
-              "students": 3
+              "hours": 0.6666666666666666,
+              "students": 2
             },
             {
               "type": "course2-oneone",
               "classId": 3,
               "hours": 0.6666666666666666,
               "students": 2
+            },
+            {
+              "type": "course2-oneone",
+              "classId": 5,
+              "hours": 1.3333333333333333,
+              "students": 4
+            },
+            {
+              "type": "course2-oneone",
+              "classId": 6,
+              "hours": 1.3333333333333333,
+              "students": 4
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "name": "Teacher 11",
+          "salary": 8000000,
+          "capacity": 4,
+          "assignments": [
+            {
+              "type": "course2-oneone",
+              "classId": 2,
+              "hours": 1.3333333333333333,
+              "students": 4
+            },
+            {
+              "type": "course2-class",
+              "classId": 6,
+              "hours": 2,
+              "students": 0
+            },
+            {
+              "type": "course2-oneone",
+              "classId": 7,
+              "hours": 0.6666666666666666,
+              "students": 2
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "name": "Teacher 12",
+          "salary": 8200000,
+          "capacity": 5,
+          "assignments": [
+            {
+              "type": "course2-oneone",
+              "classId": 3,
+              "hours": 0.6666666666666666,
+              "students": 2
+            },
+            {
+              "type": "course2-oneone",
+              "classId": 6,
+              "hours": 2.6666666666666665,
+              "students": 8
+            },
+            {
+              "type": "course2-oneone",
+              "classId": 7,
+              "hours": 1.3333333333333333,
+              "students": 4
             }
           ]
         }

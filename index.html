@@ -716,27 +716,61 @@
             };
 
             const addAssignment = (teacherId, assignmentType, classId, studentCount = null) => {
-                let hours = 0;
-                let students = 0;
+                // Handle Course 2 one-on-one assignments separately to merge them
+                if (assignmentType === 'course2-oneone') {
+                    setTeachers(currentTeachers => currentTeachers.map(teacher => {
+                        if (teacher.id !== teacherId) {
+                            return teacher;
+                        }
 
-                if (assignmentType === 'course1-class') {
-                    hours = course1HoursPerWeek;
-                } else if (assignmentType === 'course2-class') {
-                    hours = course2ClassHoursPerWeek;
-                } else if (assignmentType === 'course2-oneone') {
-                    students = studentCount || 0;
-                    hours = (students * course2OneOnOneMinutes) / 60;
-                } else if (assignmentType === 'course2alt') {
-                    const cls = course2AltClasses.find(c => c.id === classId);
-                    students = cls ? cls.students : 1;
-                    hours = students * course2AltHoursPerWeek;
+                        const existingAssignmentIndex = teacher.assignments.findIndex(
+                            a => a.type === 'course2-oneone' && a.classId === classId
+                        );
+
+                        let updatedAssignments;
+
+                        if (existingAssignmentIndex !== -1) {
+                            // Update existing assignment
+                            updatedAssignments = [...teacher.assignments];
+                            const existingAssignment = updatedAssignments[existingAssignmentIndex];
+                            
+                            const newStudentCount = (existingAssignment.students || 0) + (studentCount || 0);
+                            
+                            updatedAssignments[existingAssignmentIndex] = {
+                                ...existingAssignment,
+                                students: newStudentCount,
+                                hours: (newStudentCount * course2OneOnOneMinutes) / 60
+                            };
+                        } else {
+                            // Add new assignment
+                            const students = studentCount || 0;
+                            const hours = (students * course2OneOnOneMinutes) / 60;
+                            updatedAssignments = [...teacher.assignments, { type: assignmentType, classId, hours, students }];
+                        }
+
+                        return { ...teacher, assignments: updatedAssignments };
+                    }));
+                } else {
+                    // Handle other assignment types as before
+                    let hours = 0;
+                    let students = 0;
+
+                    if (assignmentType === 'course1-class') {
+                        hours = course1HoursPerWeek;
+                    } else if (assignmentType === 'course2-class') {
+                        hours = course2ClassHoursPerWeek;
+                    } else if (assignmentType === 'course2alt') {
+                        const cls = course2AltClasses.find(c => c.id === classId);
+                        students = cls ? cls.students : 1;
+                        hours = students * course2AltHoursPerWeek;
+                    }
+
+                    setTeachers(currentTeachers => currentTeachers.map(t => 
+                        t.id === teacherId 
+                            ? { ...t, assignments: [...t.assignments, { type: assignmentType, classId, hours, students }] }
+                            : t
+                    ));
                 }
-
-                setTeachers(teachers.map(t => 
-                    t.id === teacherId 
-                        ? { ...t, assignments: [...t.assignments, { type: assignmentType, classId, hours, students }] }
-                        : t
-                ));
             };
 
             const removeAssignment = (teacherId, assignmentIndex) => {
@@ -748,7 +782,18 @@
             };
 
             const openOneOnOneModal = (teacherId, classId) => {
-                setModalData({ teacherId, classId, students: 1 });
+                const classInfo = course2Classes.find(c => c.id === classId);
+                if (!classInfo) return;
+
+                const coveredStudents = course2OneOnOneCoverage.get(classId) || 0;
+                const remainingStudents = classInfo.students - coveredStudents;
+
+                setModalData({ 
+                    teacherId, 
+                    classId, 
+                    students: remainingStudents > 0 ? remainingStudents : 1, 
+                    maxStudents: remainingStudents > 0 ? remainingStudents : classInfo.students
+                });
                 setShowOneOnOneModal(true);
             };
 
@@ -1616,17 +1661,8 @@
 
                             {/* Right: Teachers */}
                             <div className="relative">
-                                {/* Floating Add Teacher Button */}
-                                <button 
-                                    onClick={addTeacher} 
-                                    className="absolute -top-2 -right-2 z-10 btn btn-primary shadow-lg hover:shadow-xl"
-                                    title="Add new teacher"
-                                >
-                                    + Add Teacher
-                                </button>
-
+                                <div className={`card transition-all duration-300 ${isTeacherPanelExpanded ? 'shadow-xl' : ''} pb-0`}>
                                 <div 
-                                    className={`card transition-all duration-300 ${isTeacherPanelExpanded ? 'shadow-xl' : ''}`}
                                     style={{
                                         overflowY: 'auto',
                                         maxHeight: isTeacherPanelExpanded ? 'none' : (teacherPanelHeight ? `${teacherPanelHeight}px` : 'auto')
@@ -1827,6 +1863,18 @@
                                         })}
                                     </div>
                                 </div>
+                                
+                                {/* Add Teacher Button - Fixed at bottom of card */}
+                                <div className="border-t border-gray-200 pt-4 pb-4 flex justify-center bg-white">
+                                    <button 
+                                        onClick={addTeacher} 
+                                        className="btn btn-primary shadow-lg hover:shadow-xl"
+                                        title="Add new teacher"
+                                    >
+                                        + Add Teacher
+                                    </button>
+                                </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1847,7 +1895,7 @@
                                         value={modalData.students}
                                         onChange={(e) => setModalData({...modalData, students: parseInt(e.target.value) || 1})}
                                         min="1"
-                                        max={course2Classes.find(c => c.id === modalData.classId)?.students || 1}
+                                        max={modalData.maxStudents || 1}
                                     />
                                     <div className="text-xs text-gray-600 mt-1">
                                         Hours needed: {((modalData.students * course2OneOnOneMinutes) / 60).toFixed(1)}h ({course2OneOnOneMinutes} min per student)

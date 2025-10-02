@@ -73,6 +73,9 @@
             border-color: #3b82f6;
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
         }
+        .input-narrow {
+            width: 90px;
+        }
         .assignment-item {
             display: flex;
             align-items: center;
@@ -173,6 +176,7 @@
 
         const PAGES_STORAGE_KEY = 'kcEduDashboardPages';
         const PAGE_DATA_PREFIX = 'kcEduPage_';
+        const DEFAULT_COURSE2_ALT_RATE = 400000;
 
         const getPageStorageKey = (pageId) => `${PAGE_DATA_PREFIX}${pageId}`;
 
@@ -227,6 +231,8 @@
 
         function FinancialAnalysisDashboard() {
             const savedPagesData = useMemo(() => loadSavedPages(), []);
+            const defaultCourse2AltRate = savedPagesData?.course2AltPricePerHour ?? DEFAULT_COURSE2_ALT_RATE;
+            const FIXED_COST_PERIOD_WEEKS = 4;
             
             // Page management
             const [pages, setPages] = useState(() => savedPagesData?.pages ?? [
@@ -250,7 +256,7 @@
             // Pricing (per hour per student) - now editable
             const [course1PricePerHour, setCourse1PricePerHour] = useState(() => savedState?.course1PricePerHour ?? 250000);
             const [course2PricePerHour, setCourse2PricePerHour] = useState(() => savedState?.course2PricePerHour ?? 260000);
-            const [course2AltPricePerHour, setCourse2AltPricePerHour] = useState(() => savedState?.course2AltPricePerHour ?? 400000);
+            const [course2AltPricePerHour, setCourse2AltPricePerHour] = useState(() => savedState?.course2AltPricePerHour ?? defaultCourse2AltRate ?? DEFAULT_COURSE2_ALT_RATE);
 
             // Session details - now editable
             const [courseDurationWeeks, setCourseDurationWeeks] = useState(() => savedState?.courseDurationWeeks ?? 9);
@@ -277,7 +283,11 @@
             const defaultCourse2AltClasses = [];
 
             const normalizeClasses = (input, defaults, prefix, fallbackStudents) => {
-                const source = Array.isArray(input) && input.length > 0 ? input : defaults;
+                // If input is explicitly provided (even if empty), use it; otherwise use defaults
+                const source = input !== null && input !== undefined ? input : defaults;
+                if (!Array.isArray(source) || source.length === 0) {
+                    return [];
+                }
                 return source.map((cls, idx) => {
                     const id = cls.id ?? defaults[idx]?.id ?? idx + 1;
                     const defaultMatch = defaults.find(d => d.id === id);
@@ -289,6 +299,20 @@
                         id,
                         name: cls.name && cls.name.trim().length ? cls.name : fallbackName,
                         students: Number.isNaN(parsedStudents) ? fallbackStudentCount : parsedStudents,
+                    };
+                });
+            };
+
+            const ensureCourse2AltRates = (classes, fallbackRate) => {
+                const parsedFallback = parseInt(fallbackRate, 10);
+                const effectiveFallback = Number.isNaN(parsedFallback) || parsedFallback <= 0 ? DEFAULT_COURSE2_ALT_RATE : parsedFallback;
+                return classes.map(cls => {
+                    const parsedRate = parseInt(cls.ratePerHour, 10);
+                    const parsedStudents = parseInt(cls.students, 10);
+                    return {
+                        ...cls,
+                        students: Number.isNaN(parsedStudents) || parsedStudents <= 0 ? 1 : parsedStudents,
+                        ratePerHour: Number.isNaN(parsedRate) || parsedRate <= 0 ? effectiveFallback : parsedRate,
                     };
                 });
             };
@@ -308,11 +332,14 @@
                 6
             ));
             
-            const [course2AltClasses, setCourse2AltClasses] = useState(() => normalizeClasses(
-                savedState?.course2AltClasses,
-                defaultCourse2AltClasses,
-                'Slot',
-                1
+            const [course2AltClasses, setCourse2AltClasses] = useState(() => ensureCourse2AltRates(
+                normalizeClasses(
+                    savedState?.course2AltClasses,
+                    defaultCourse2AltClasses,
+                    'Slot',
+                    1
+                ),
+                savedState?.course2AltPricePerHour ?? course2AltPricePerHour ?? DEFAULT_COURSE2_ALT_RATE
             ));
 
             // Teachers with flexible assignments (salary and capacity per teacher)
@@ -365,6 +392,7 @@
             ]);
 
             const classesCardRef = useRef(null);
+            const prevCourse2AltPriceRef = useRef(course2AltPricePerHour);
             const [teacherPanelHeight, setTeacherPanelHeight] = useState(null);
 
             // Page management functions
@@ -584,7 +612,7 @@
             useEffect(() => {
                 const pageState = loadPageState(activePageId);
                 if (pageState) {
-                    setHrPersonnel(pageState.hrPersonnel ?? 28000000);
+                    setHrPersonnel(pageState.hrPersonnel ?? 24000000);
                     setMarketing(pageState.marketing ?? 8000000);
                     setMisc(pageState.misc ?? 4000000);
                     setDefaultTeacherSalary(pageState.defaultTeacherSalary ?? 8000000);
@@ -592,7 +620,7 @@
                     setCourse1PricePerHour(pageState.course1PricePerHour ?? 250000);
                     setCourse2PricePerHour(pageState.course2PricePerHour ?? 260000);
                     setCourse2AltPricePerHour(pageState.course2AltPricePerHour ?? 400000);
-                    setCourseDurationWeeks(pageState.courseDurationWeeks ?? 9);
+                    setCourseDurationWeeks(pageState.courseDurationWeeks ?? 4);
                     setCourse1HoursPerWeek(pageState.course1HoursPerWeek ?? 2);
                     setCourse2ClassHoursPerWeek(pageState.course2ClassHoursPerWeek ?? 2);
                     setCourse2AltHoursPerWeek(pageState.course2AltHoursPerWeek ?? 2);
@@ -613,11 +641,15 @@
                         'Class',
                         6
                     ));
-                    setCourse2AltClasses(normalizeClasses(
-                        pageState.course2AltClasses,
-                        defaultCourse2AltClasses,
-                        'Slot',
-                        1
+                    const pageCourse2AltRate = pageState.course2AltPricePerHour ?? DEFAULT_COURSE2_ALT_RATE;
+                    setCourse2AltClasses(ensureCourse2AltRates(
+                        normalizeClasses(
+                            pageState.course2AltClasses,
+                            defaultCourse2AltClasses,
+                            'Slot',
+                            1
+                        ),
+                        pageCourse2AltRate
                     ));
                     setTeachers(pageState.teachers ?? [
                         { 
@@ -675,6 +707,23 @@
                 }
             }, [course1Classes, course2Classes, course2AltClasses, teachers, course2OneOnOneMinutes, course2ClassHoursPerWeek, course2AltHoursPerWeek, courseDurationWeeks, activePageId]);
 
+            useEffect(() => {
+                const previousRate = prevCourse2AltPriceRef.current;
+                if (previousRate === course2AltPricePerHour) {
+                    return;
+                }
+
+                setCourse2AltClasses(prevClasses => prevClasses.map(cls => {
+                    const currentRate = parseInt(cls.ratePerHour, 10);
+                    if (Number.isNaN(currentRate) || currentRate <= 0 || currentRate === previousRate) {
+                        return { ...cls, ratePerHour: course2AltPricePerHour };
+                    }
+                    return cls;
+                }));
+
+                prevCourse2AltPriceRef.current = course2AltPricePerHour;
+            }, [course2AltPricePerHour]);
+
             // Modal state for adding one-on-one assignment
             const [showOneOnOneModal, setShowOneOnOneModal] = useState(false);
             const [modalData, setModalData] = useState({ teacherId: null, classId: null, students: 1, maxStudents: 1, className: '' });
@@ -729,7 +778,12 @@
                     setCourse2Classes([...course2Classes, { id: newId, name: `Class ${newId}`, students: 6 }]);
                 } else if (type === 'course2alt') {
                     const newId = Math.max(0, ...course2AltClasses.map(c => c.id), 0) + 1;
-                    setCourse2AltClasses([...course2AltClasses, { id: newId, name: `Slot ${newId}`, students: 1 }]);
+                    setCourse2AltClasses([...course2AltClasses, {
+                        id: newId,
+                        name: `Slot ${newId}`,
+                        students: 1,
+                        ratePerHour: course2AltPricePerHour ?? DEFAULT_COURSE2_ALT_RATE,
+                    }]);
                 }
             };
 
@@ -774,16 +828,31 @@
                 } else if (type === 'course2') {
                     setCourse2Classes(course2Classes.map(c => c.id === id ? { ...c, students: num } : c));
                 } else if (type === 'course2alt') {
-                    setCourse2AltClasses(course2AltClasses.map(c => c.id === id ? { ...c, students: num } : c));
+                    const sanitized = num <= 0 ? 1 : num;
+                    setCourse2AltClasses(course2AltClasses.map(c => c.id === id ? { ...c, students: sanitized } : c));
                     setTeachers(teachers.map(t => ({
                         ...t,
                         assignments: t.assignments.map(a => 
                             a.type === 'course2alt' && a.classId === id
-                                ? { ...a, students: num, hours: num * course2AltHoursPerWeek }
+                                ? { ...a, students: sanitized, hours: sanitized * course2AltHoursPerWeek }
                                 : a
                         )
                     })));
                 }
+            };
+
+            const updateCourse2AltRate = (id, rateInput) => {
+                const parsedRate = parseFormattedNumber(rateInput);
+                const sanitized = parsedRate > 0 ? parsedRate : course2AltPricePerHour;
+                setCourse2AltClasses(course2AltClasses.map(c => c.id === id ? { ...c, ratePerHour: sanitized } : c));
+                setTeachers(teachers.map(t => ({
+                    ...t,
+                    assignments: t.assignments.map(a => 
+                        a.type === 'course2alt' && a.classId === id
+                            ? { ...a, ratePerHour: sanitized }
+                            : a
+                    )
+                })));
             };
 
             // Teacher management
@@ -970,8 +1039,11 @@
                     return sum + cls.students * course2PricePerHour * hoursPerWeek * courseDurationWeeks;
                 }, 0);
                 
-                const course2AltRevenue = course2AltClasses.reduce((sum, cls) => 
-                    sum + cls.students * course2AltPricePerHour * course2AltHoursPerWeek * courseDurationWeeks, 0);
+                const course2AltRevenue = course2AltClasses.reduce((sum, cls) => {
+                    const ratePerHour = parseInt(cls.ratePerHour, 10);
+                    const effectiveRate = Number.isNaN(ratePerHour) ? course2AltPricePerHour : ratePerHour;
+                    return sum + cls.students * effectiveRate * course2AltHoursPerWeek * courseDurationWeeks;
+                }, 0);
                 
                 return {
                     course1: course1Revenue,
@@ -986,7 +1058,7 @@
                 const revenue = calculateRevenue();
                 const teacherCosts = teachers.reduce((sum, t) => sum + t.salary, 0);
                 const totalFixedCosts = hrPersonnel + marketing + misc + teacherCosts;
-                const totalCostsFor9Weeks = totalFixedCosts * (courseDurationWeeks / 4.33);
+                const totalCostsFor9Weeks = totalFixedCosts * (courseDurationWeeks / FIXED_COST_PERIOD_WEEKS);
                 
                 const grossProfit = revenue.total - totalCostsFor9Weeks;
                 const netProfit = grossProfit * (1 - taxRate);
@@ -997,7 +1069,7 @@
                     grossProfit,
                     netProfit,
                     profitMargin: revenue.total > 0 ? (netProfit / revenue.total) * 100 : 0,
-                    teacherCosts: teacherCosts * (courseDurationWeeks / 4.33)
+                    teacherCosts: teacherCosts * (courseDurationWeeks / FIXED_COST_PERIOD_WEEKS)
                 };
             };
 
@@ -1182,7 +1254,10 @@
                     const hoursPerWeek = course2ClassHoursPerWeek + (course2OneOnOneMinutes / 60);
                     revenue = students * course2PricePerHour * hoursPerWeek * courseDurationWeeks;
                 } else if (classType === 'course2alt') {
-                    revenue = students * course2AltPricePerHour * course2AltHoursPerWeek * courseDurationWeeks;
+                    const course2AltClass = course2AltClasses.find(c => c.id === classId);
+                    const ratePerHour = course2AltClass?.ratePerHour ?? course2AltPricePerHour;
+                    const studentCount = course2AltClass?.students ?? students;
+                    revenue = studentCount * ratePerHour * course2AltHoursPerWeek * courseDurationWeeks;
                 }
 
                 // Calculate teacher cost for this class
@@ -1200,9 +1275,8 @@
 
                         if (isMatch) {
                             // Calculate hourly rate for this teacher
-                            const monthlyRate = teacher.salary;
-                            const weeksInMonth = 4.33;
-                            const weeklyRate = monthlyRate / weeksInMonth;
+                            const periodRate = teacher.salary;
+                            const weeklyRate = periodRate / FIXED_COST_PERIOD_WEEKS;
                             const hourlyRate = weeklyRate / teacher.capacity;
                             
                             // Total cost for this assignment over the course duration
@@ -1457,7 +1531,7 @@
 
                             {/* Fixed Costs */}
                             <div className="mb-6">
-                                <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">💰 Fixed Costs (per month)</h3>
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">💰 Fixed Costs (per 4-week period)</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="editable-field">
                                     <label>HR Personnel:</label>
@@ -1467,7 +1541,7 @@
                                         onChange={(e) => setHrPersonnel(parseFormattedNumber(e.target.value))}
                                         className="flex-1"
                                     />
-                                    <span className="text-sm text-gray-600">VND/month</span>
+                                    <span className="text-sm text-gray-600">VND/4 weeks</span>
                                 </div>
                                 <div className="editable-field">
                                     <label>Marketing:</label>
@@ -1477,7 +1551,7 @@
                                         onChange={(e) => setMarketing(parseFormattedNumber(e.target.value))}
                                         className="flex-1"
                                     />
-                                    <span className="text-sm text-gray-600">VND/month</span>
+                                    <span className="text-sm text-gray-600">VND/4 weeks</span>
                                 </div>
                                 <div className="editable-field">
                                     <label>Miscellaneous:</label>
@@ -1487,7 +1561,7 @@
                                         onChange={(e) => setMisc(parseFormattedNumber(e.target.value))}
                                         className="flex-1"
                                     />
-                                    <span className="text-sm text-gray-600">VND/month</span>
+                                    <span className="text-sm text-gray-600">VND/4 weeks</span>
                                 </div>
                                 </div>
                             </div>
@@ -1526,7 +1600,7 @@
                                             onChange={(e) => setDefaultTeacherSalary(parseFormattedNumber(e.target.value))}
                                             className="flex-1"
                                         />
-                                        <span className="text-sm text-gray-600">VND/month</span>
+                                        <span className="text-sm text-gray-600">VND/4 weeks</span>
                                     </div>
                                     <div className="editable-field">
                                         <label>Default Teacher Hours:</label>
@@ -1596,8 +1670,8 @@
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                     {founderNames.map((name, idx) => {
                                         const percentage = founderPercentages[idx];
-                                        const monthlyIncome = (profit.netProfit / courseDurationWeeks) * 4.33;
-                                        const founderShare = monthlyIncome * (percentage / 100);
+                                        const periodIncome = (profit.netProfit / courseDurationWeeks) * FIXED_COST_PERIOD_WEEKS;
+                                        const founderShare = periodIncome * (percentage / 100);
                                         const totalForPeriod = (profit.netProfit * percentage) / 100;
                                         
                                         return (
@@ -1605,7 +1679,7 @@
                                                 <div className="text-sm font-semibold text-gray-700 mb-1">{name}</div>
                                                 <div className="text-xs text-gray-600 mb-2">{percentage}% share</div>
                                                 <div className="text-lg font-bold text-indigo-600 mb-1">{formatVND(founderShare)}</div>
-                                                <div className="text-xs text-gray-500">per month</div>
+                                                <div className="text-xs text-gray-500">per 4 weeks</div>
                                                 <div className="text-sm font-semibold text-purple-600 mt-2 pt-2 border-t border-indigo-200">
                                                     {formatVND(totalForPeriod)}
                                                 </div>
@@ -1625,11 +1699,11 @@
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">HR Personnel</span>
-                                        <span className="font-semibold">{formatVND(hrPersonnel * courseDurationWeeks/4.33)}</span>
+                                        <span className="font-semibold">{formatVND(hrPersonnel * courseDurationWeeks/FIXED_COST_PERIOD_WEEKS)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Marketing</span>
-                                        <span className="font-semibold">{formatVND(marketing * courseDurationWeeks/4.33)}</span>
+                                        <span className="font-semibold">{formatVND(marketing * courseDurationWeeks/FIXED_COST_PERIOD_WEEKS)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Teachers ({teachers.length})</span>
@@ -1637,7 +1711,7 @@
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Miscellaneous</span>
-                                        <span className="font-semibold">{formatVND(misc * courseDurationWeeks/4.33)}</span>
+                                        <span className="font-semibold">{formatVND(misc * courseDurationWeeks/FIXED_COST_PERIOD_WEEKS)}</span>
                                     </div>
                                     <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-gray-200">
                                         <span>Total Costs</span>
@@ -1896,7 +1970,7 @@
                                             <h3 className="text-lg font-bold text-gray-900">Course 2 Alt: One-on-One <span className="text-sm font-semibold text-gray-500">({formatClassLabel(course2AltClassCount)})</span></h3>
                                             <button onClick={() => addClass('course2alt')} className="btn btn-success btn-small">+ Add</button>
                                         </div>
-                                        <div className="text-xs text-gray-600 mb-2">{course2AltHoursPerWeek}h/week per student | {formatVND(course2AltPricePerHour)}/h/student</div>
+                                        <div className="text-xs text-gray-600 mb-2">{course2AltHoursPerWeek}h/week per student | Default: {formatVND(course2AltPricePerHour)}/h/student</div>
                                         {course2AltClasses.length === 0 ? (
                                             <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-lg">
                                                 No Course 2 Alt classes. Click "+ Add" to create one.
@@ -1943,6 +2017,13 @@
                                                                     min="1"
                                                                 />
                                                                 <span className="text-sm text-gray-600">student(s)</span>
+                                                                <input
+                                                                    type="text"
+                                                                    className="small input-narrow"
+                                                                    value={formatNumber(cls.ratePerHour ?? course2AltPricePerHour)}
+                                                                    onChange={(e) => updateCourse2AltRate(cls.id, e.target.value)}
+                                                                />
+                                                                <span className="text-sm text-gray-600">VND/h</span>
                                                                 <span className={`text-xs ml-auto ${covered ? 'text-green-600' : 'text-red-600'} font-semibold`}>
                                                                     {covered ? '✓ Covered' : '✗ No teacher'}
                                                                 </span>

@@ -9,47 +9,47 @@
       "name": "30 MIL"
     },
     {
-      "id": 7,
-      "name": "Balanced pricing of course 2"
-    },
-    {
       "id": 8,
-      "name": "Alternative analysis"
+      "name": "Official month 1"
     }
   ],
   "activePageId": 8,
   "pagesData": {
     "5": {
-      "hrPersonnel": 28000000,
+      "hrPersonnel": 23000000,
       "marketing": 8000000,
       "misc": 3500000,
       "defaultTeacherSalary": 8000000,
       "defaultTeacherCapacity": 4,
       "course1PricePerHour": 250000,
-      "course2PricePerHour": 260000,
+      "course2PricePerHour": 300000,
       "course2AltPricePerHour": 400000,
-      "courseDurationWeeks": 9,
+      "courseDurationWeeks": 4,
       "course1HoursPerWeek": 2,
       "course2ClassHoursPerWeek": 2,
       "course2AltHoursPerWeek": 2,
       "course2OneOnOneMinutes": 20,
-      "showFounders": true,
-      "isConfigCollapsed": true,
+      "taxRate": 0.02,
+      "showFounders": false,
+      "isConfigCollapsed": false,
       "isTeacherPanelExpanded": false,
       "course1Classes": [
         {
           "id": 1,
-          "students": 10
+          "students": 10,
+          "name": "Class1"
         },
         {
           "id": 2,
-          "students": 9
+          "students": 9,
+          "name": "Class 2"
         }
       ],
       "course2Classes": [
         {
           "id": 1,
-          "students": 6
+          "students": 6,
+          "name": "Class 1"
         }
       ],
       "course2AltClasses": [],
@@ -75,8 +75,8 @@
           ]
         },
         {
-          "id": 2,
-          "name": "Teacher 2",
+          "id": 3,
+          "name": "Teacher 3",
           "salary": 8000000,
           "capacity": 4,
           "assignments": [
@@ -110,65 +110,81 @@
       "course2ClassHoursPerWeek": 2,
       "course2AltHoursPerWeek": 2,
       "course2OneOnOneMinutes": 20,
+      "taxRate": 0.02,
       "showFounders": true,
       "isConfigCollapsed": true,
       "isTeacherPanelExpanded": false,
       "course1Classes": [
         {
           "id": 1,
-          "students": 15
+          "students": 15,
+          "name": "Class 1"
         },
         {
           "id": 2,
-          "students": 15
+          "students": 15,
+          "name": "Class 2"
         },
         {
           "id": 3,
-          "students": 15
+          "students": 15,
+          "name": "Class 3"
         },
         {
           "id": 4,
-          "students": 15
+          "students": 15,
+          "name": "Class 4"
         },
         {
           "id": 5,
-          "students": 15
+          "students": 15,
+          "name": "Class 5"
         },
         {
           "id": 6,
-          "students": 15
+          "students": 15,
+          "name": "Class 6"
         }
       ],
       "course2Classes": [
         {
           "id": 2,
-          "students": 10
+          "students": 10,
+          "name": "Class 2"
         },
         {
           "id": 3,
-          "students": 10
+          "students": 10,
+          "name": "Class 3"
         },
         {
           "id": 5,
-          "students": 10
+          "students": 10,
+          "name": "Class 5"
         },
         {
           "id": 6,
-          "students": 12
+          "students": 12,
+          "name": "Class 6"
         },
         {
           "id": 7,
-          "students": 12
+          "students": 12,
+          "name": "Class 7"
         }
       ],
       "course2AltClasses": [
         {
           "id": 3,
-          "students": 1
+          "students": 1,
+          "name": "Slot 3",
+          "ratePerHour": 400000
         },
         {
           "id": 4,
-          "students": 1
+          "students": 1,
+          "name": "Slot 4",
+          "ratePerHour": 400000
         }
       ],
       "teachers": [
@@ -418,117 +434,112 @@
         }
       ]
     },
-    "7": {
-      "hrPersonnel": 28000000,
-      "marketing": 8000000,
-      "misc": 3500000,
-      "defaultTeacherSalary": 8000000,
-      "defaultTeacherCapacity": 4,
-      "course1PricePerHour": 250000,
-      "course2PricePerHour": 300000,
-      "course2AltPricePerHour": 400000,
-      "courseDurationWeeks": 9,
-      "course1HoursPerWeek": 2,
-      "course2ClassHoursPerWeek": 2,
-      "course2AltHoursPerWeek": 2,
-      "course2OneOnOneMinutes": 20,
-      "showFounders": true,
-      "isConfigCollapsed": false,
-      "isTeacherPanelExpanded": false,
-      "course1Classes": [
-        {
-          "id": 1,
-          "students": 15
-        },
-        {
-          "id": 2,
-          "students": 15
-        }
-      ],
-      "course2Classes": [],
-      "course2AltClasses": [],
-      "teachers": [
-        {
-          "id": 1,
-          "name": "Teacher 1",
-          "salary": 8000000,
-          "capacity": 4,
-          "assignments": [
-            {
-              "type": "course1-class",
-              "classId": 1,
-              "hours": 2,
-              "students": 0
-            },
-            {
-              "type": "course1-class",
-              "classId": 2,
-              "hours": 2,
-              "students": 0
-            }
-          ]
-        }
-      ]
-    },
     "8": {
-      "hrPersonnel": 28000000,
-      "marketing": 8000000,
-      "misc": 4000000,
+      "hrPersonnel": 0,
+      "marketing": 0,
+      "misc": 0,
       "defaultTeacherSalary": 8000000,
       "defaultTeacherCapacity": 4,
       "course1PricePerHour": 250000,
       "course2PricePerHour": 300000,
-      "course2AltPricePerHour": 400000,
-      "courseDurationWeeks": 9,
+      "course2AltPricePerHour": 250000,
+      "courseDurationWeeks": 4,
       "course1HoursPerWeek": 2,
       "course2ClassHoursPerWeek": 2,
       "course2AltHoursPerWeek": 2,
       "course2OneOnOneMinutes": 20,
+      "taxRate": 0,
       "showFounders": true,
-      "isConfigCollapsed": false,
+      "isConfigCollapsed": true,
       "isTeacherPanelExpanded": false,
       "course1Classes": [
         {
           "id": 1,
-          "students": 2
+          "name": "Class 1",
+          "students": 4
         }
       ],
       "course2Classes": [],
       "course2AltClasses": [
         {
           "id": 1,
-          "students": 1
+          "name": "Minh Phương",
+          "students": 1,
+          "ratePerHour": 250000
         },
         {
           "id": 2,
-          "students": 1
+          "name": "Phương Anh",
+          "students": 1,
+          "ratePerHour": 250000
+        },
+        {
+          "id": 3,
+          "name": "Ngân Hà",
+          "students": 1,
+          "ratePerHour": 400000
+        },
+        {
+          "id": 4,
+          "name": "Quang Liêm",
+          "students": 1,
+          "ratePerHour": 250000
+        },
+        {
+          "id": 5,
+          "name": "Khánh Linh",
+          "students": 1,
+          "ratePerHour": 250000
         }
       ],
       "teachers": [
         {
           "id": 1,
-          "name": "Teacher 1",
-          "salary": 6500000,
+          "name": "Nguyễn Đức Bảo Khôi",
+          "salary": 0,
           "capacity": 4,
           "assignments": [
             {
               "type": "course2alt",
               "classId": 1,
               "hours": 2,
-              "students": 1
+              "students": 1,
+              "ratePerHour": 250000
             },
             {
               "type": "course2alt",
               "classId": 2,
+              "hours": 2,
+              "students": 1,
+              "ratePerHour": 400000
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "Đỗ Cao Ngọc Minh Trang",
+          "salary": 0,
+          "capacity": 4,
+          "assignments": [
+            {
+              "type": "course2alt",
+              "classId": 3,
+              "hours": 2,
+              "students": 1,
+              "ratePerHour": 400000
+            },
+            {
+              "type": "course2alt",
+              "classId": 4,
               "hours": 2,
               "students": 1
             }
           ]
         },
         {
-          "id": 2,
-          "name": "Teacher 2",
-          "salary": 8000000,
+          "id": 3,
+          "name": "Doãn Bá Kháng Nguyên",
+          "salary": 0,
           "capacity": 4,
           "assignments": [
             {
@@ -536,6 +547,12 @@
               "classId": 1,
               "hours": 2,
               "students": 0
+            },
+            {
+              "type": "course2alt",
+              "classId": 5,
+              "hours": 2,
+              "students": 1
             }
           ]
         }

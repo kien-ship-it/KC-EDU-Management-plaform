@@ -394,6 +394,50 @@
             const classesCardRef = useRef(null);
             const prevCourse2AltPriceRef = useRef(course2AltPricePerHour);
             const [teacherPanelHeight, setTeacherPanelHeight] = useState(null);
+            const isLoadingPageRef = useRef(false);
+
+            // Helper to get current page state
+            const getCurrentPageState = () => {
+                return {
+                    hrPersonnel,
+                    marketing,
+                    misc,
+                    defaultTeacherSalary,
+                    defaultTeacherCapacity,
+                    course1PricePerHour,
+                    course2PricePerHour,
+                    course2AltPricePerHour,
+                    courseDurationWeeks,
+                    course1HoursPerWeek,
+                    course2ClassHoursPerWeek,
+                    course2AltHoursPerWeek,
+                    course2OneOnOneMinutes,
+                    taxRate,
+                    showFounders,
+                    isConfigCollapsed,
+                    isTeacherPanelExpanded,
+                    course1Classes,
+                    course2Classes,
+                    course2AltClasses,
+                    teachers,
+                };
+            };
+
+            // Switch to a different page (saves current page first)
+            const switchToPage = (newPageId) => {
+                if (newPageId === activePageId) return;
+                
+                // Save current page state before switching
+                const currentState = getCurrentPageState();
+                console.log('💾 SAVING Page', activePageId, 'before switch - course2AltClasses:', JSON.stringify(currentState.course2AltClasses));
+                persistPageState(activePageId, currentState);
+                
+                // Set flag to prevent auto-save during load
+                isLoadingPageRef.current = true;
+                
+                // Now switch to the new page
+                setActivePageId(newPageId);
+            };
 
             // Page management functions
             const addNewPage = () => {
@@ -432,7 +476,7 @@
                 persistPageState(newId, newPageState);
                 
                 setPages(updatedPages);
-                setActivePageId(newId);
+                switchToPage(newId);
             };
 
             const deletePage = (pageId) => {
@@ -442,7 +486,7 @@
                 // Clean up page-specific data from localStorage
                 deletePageState(pageId);
                 if (activePageId === pageId) {
-                    setActivePageId(updatedPages[0].id);
+                    switchToPage(updatedPages[0].id);
                 }
             };
 
@@ -513,7 +557,7 @@
 
                         // Import pages
                         setPages(importedData.pages);
-                        setActivePageId(importedData.activePageId || importedData.pages[0].id);
+                        switchToPage(importedData.activePageId || importedData.pages[0].id);
 
                         // Import all page data
                         Object.keys(importedData.pagesData || {}).forEach(pageId => {
@@ -537,32 +581,16 @@
                 event.target.value = '';
             };
 
-            // Persist current page state
+            // Auto-save current page state on changes (debounced via useEffect)
             useEffect(() => {
-                const stateToSave = {
-                    hrPersonnel,
-                    marketing,
-                    misc,
-                    defaultTeacherSalary,
-                    defaultTeacherCapacity,
-                    course1PricePerHour,
-                    course2PricePerHour,
-                    course2AltPricePerHour,
-                    courseDurationWeeks,
-                    course1HoursPerWeek,
-                    course2ClassHoursPerWeek,
-                    course2AltHoursPerWeek,
-                    course2OneOnOneMinutes,
-                    taxRate,
-                    showFounders,
-                    isConfigCollapsed,
-                    isTeacherPanelExpanded,
-                    course1Classes,
-                    course2Classes,
-                    course2AltClasses,
-                    teachers,
-                };
-
+                // Skip auto-save if we're currently loading a page
+                if (isLoadingPageRef.current) {
+                    console.log('⏭️ SKIPPING AUTO-SAVE during page load');
+                    return;
+                }
+                
+                const stateToSave = getCurrentPageState();
+                console.log('💾 AUTO-SAVING Page', activePageId, '- course2AltClasses:', JSON.stringify(course2AltClasses));
                 // Persist to page-specific storage
                 persistPageState(activePageId, stateToSave);
             }, [
@@ -611,6 +639,8 @@
             // Load page data when switching pages
             useEffect(() => {
                 const pageState = loadPageState(activePageId);
+                console.log('📂 LOADING Page', activePageId, '- course2AltClasses from storage:', JSON.stringify(pageState?.course2AltClasses));
+                
                 if (pageState) {
                     setHrPersonnel(pageState.hrPersonnel ?? 24000000);
                     setMarketing(pageState.marketing ?? 8000000);
@@ -642,15 +672,23 @@
                         6
                     ));
                     const pageCourse2AltRate = pageState.course2AltPricePerHour ?? DEFAULT_COURSE2_ALT_RATE;
-                    setCourse2AltClasses(ensureCourse2AltRates(
-                        normalizeClasses(
-                            pageState.course2AltClasses,
-                            defaultCourse2AltClasses,
-                            'Slot',
-                            1
-                        ),
-                        pageCourse2AltRate
-                    ));
+                    const normalized = normalizeClasses(
+                        pageState.course2AltClasses,
+                        defaultCourse2AltClasses,
+                        'Slot',
+                        1
+                    );
+                    console.log('🔄 After normalizeClasses:', JSON.stringify(normalized));
+                    const withRates = ensureCourse2AltRates(normalized, pageCourse2AltRate);
+                    console.log('✅ After ensureCourse2AltRates (fallback:', pageCourse2AltRate, '):', JSON.stringify(withRates));
+                    setCourse2AltClasses(withRates);
+                    
+                    // After all state updates, re-enable auto-save
+                    // Use setTimeout to ensure all state updates have completed
+                    setTimeout(() => {
+                        isLoadingPageRef.current = false;
+                        console.log('✅ Page load complete, auto-save re-enabled');
+                    }, 0);
                     setTeachers(pageState.teachers ?? [
                         { 
                             id: 1, 
@@ -708,11 +746,19 @@
             }, [course1Classes, course2Classes, course2AltClasses, teachers, course2OneOnOneMinutes, course2ClassHoursPerWeek, course2AltHoursPerWeek, courseDurationWeeks, activePageId]);
 
             useEffect(() => {
+                // Skip during page load to avoid overwriting loaded rates
+                if (isLoadingPageRef.current) {
+                    console.log('⏭️ SKIPPING rate sync during page load');
+                    prevCourse2AltPriceRef.current = course2AltPricePerHour;
+                    return;
+                }
+                
                 const previousRate = prevCourse2AltPriceRef.current;
                 if (previousRate === course2AltPricePerHour) {
                     return;
                 }
 
+                console.log('🔄 Syncing rates: previous =', previousRate, ', new =', course2AltPricePerHour);
                 setCourse2AltClasses(prevClasses => prevClasses.map(cls => {
                     const currentRate = parseInt(cls.ratePerHour, 10);
                     if (Number.isNaN(currentRate) || currentRate <= 0 || currentRate === previousRate) {
@@ -727,6 +773,10 @@
             // Modal state for adding one-on-one assignment
             const [showOneOnOneModal, setShowOneOnOneModal] = useState(false);
             const [modalData, setModalData] = useState({ teacherId: null, classId: null, students: 1, maxStudents: 1, className: '' });
+            
+            // Track which rate input is being edited
+            const [editingRateId, setEditingRateId] = useState(null);
+            const [editingRateValue, setEditingRateValue] = useState('');
 
             // Inline editing state for class names
             const [editingClass, setEditingClass] = useState(null); // { type, id }
@@ -841,18 +891,46 @@
                 }
             };
 
-            const updateCourse2AltRate = (id, rateInput) => {
-                const parsedRate = parseFormattedNumber(rateInput);
-                const sanitized = parsedRate > 0 ? parsedRate : course2AltPricePerHour;
-                setCourse2AltClasses(course2AltClasses.map(c => c.id === id ? { ...c, ratePerHour: sanitized } : c));
-                setTeachers(teachers.map(t => ({
-                    ...t,
-                    assignments: t.assignments.map(a => 
-                        a.type === 'course2alt' && a.classId === id
-                            ? { ...a, ratePerHour: sanitized }
-                            : a
-                    )
-                })));
+            const handleRateFocus = (id, currentRate) => {
+                setEditingRateId(id);
+                setEditingRateValue(formatNumber(currentRate ?? course2AltPricePerHour));
+            };
+
+            const handleRateChange = (id, value) => {
+                setEditingRateValue(value);
+            };
+
+            const handleRateBlur = (id) => {
+                const parsedRate = parseFormattedNumber(editingRateValue);
+                
+                if (parsedRate > 0) {
+                    // Valid rate - update state
+                    setCourse2AltClasses(course2AltClasses.map(c => 
+                        c.id === id ? { ...c, ratePerHour: parsedRate } : c
+                    ));
+                    setTeachers(teachers.map(t => ({
+                        ...t,
+                        assignments: t.assignments.map(a => 
+                            a.type === 'course2alt' && a.classId === id
+                                ? { ...a, ratePerHour: parsedRate }
+                                : a
+                        )
+                    })));
+                }
+                // If invalid or zero, input will revert to stored value on next render
+                
+                setEditingRateId(null);
+                setEditingRateValue('');
+            };
+
+            const handleRateKeyDown = (id, e) => {
+                if (e.key === 'Enter') {
+                    e.target.blur(); // Trigger blur to save
+                } else if (e.key === 'Escape') {
+                    setEditingRateId(null);
+                    setEditingRateValue('');
+                    e.target.blur();
+                }
             };
 
             // Teacher management
@@ -1309,7 +1387,7 @@
                                         return (
                                             <div 
                                                 key={page.id}
-                                                onClick={!isEditing ? () => setActivePageId(page.id) : undefined}
+                                                onClick={!isEditing ? () => switchToPage(page.id) : undefined}
                                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                                                     page.id === activePageId 
                                                         ? 'bg-blue-500 text-white shadow-md' 
@@ -2020,8 +2098,11 @@
                                                                 <input
                                                                     type="text"
                                                                     className="small input-narrow"
-                                                                    value={formatNumber(cls.ratePerHour ?? course2AltPricePerHour)}
-                                                                    onChange={(e) => updateCourse2AltRate(cls.id, e.target.value)}
+                                                                    value={editingRateId === cls.id ? editingRateValue : formatNumber(cls.ratePerHour ?? course2AltPricePerHour)}
+                                                                    onFocus={() => handleRateFocus(cls.id, cls.ratePerHour)}
+                                                                    onChange={(e) => handleRateChange(cls.id, e.target.value)}
+                                                                    onBlur={() => handleRateBlur(cls.id)}
+                                                                    onKeyDown={(e) => handleRateKeyDown(cls.id, e)}
                                                                 />
                                                                 <span className="text-sm text-gray-600">VND/h</span>
                                                                 <span className={`text-xs ml-auto ${covered ? 'text-green-600' : 'text-red-600'} font-semibold`}>
